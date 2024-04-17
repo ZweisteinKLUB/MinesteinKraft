@@ -40,3 +40,6 @@ MOUSE_SENSITIVITY = 0.002
 
 # colors
 BG_COLOR = glm.vec3(0.1, 0.16, 0.25)
+
+# FPS Limit
+FPS = 60

@@ -15,7 +15,7 @@ class VoxelEngine:
         pg.display.gl_set_attribute(pg.GL_CONTEXT_MINOR_VERSION, 3)
         pg.display.gl_set_attribute(pg.GL_CONTEXT_PROFILE_MASK, pg.GL_CONTEXT_PROFILE_CORE)
         pg.display.gl_set_attribute(pg.GL_DEPTH_SIZE, 24)
-        
+
         pg.display.set_mode(WIN_RES, flags=pg.OPENGL | pg.DOUBLEBUF)
         self.ctx = mgl.create_context()
         
@@ -25,7 +25,7 @@ class VoxelEngine:
         self.clock = pg.time.Clock()
         self.delta_time = 0
         self.time = 0
-        
+
         pg.event.set_grab(True)
         pg.mouse.set_visible(False)
         
@@ -43,8 +43,9 @@ class VoxelEngine:
         self.shader_program.update()
         self.scene.update()
         
-        self.delta_time = self.clock.tick()
+        self.delta_time = self.clock.tick(FPS)
         self.time = pg.time.get_ticks() * 0.001
+         
         pg.display.set_caption(f'{self.clock.get_fps() :.0f}')
     
     def render(self):
