@@ -16,7 +16,7 @@ class Frustum:
         sphere_vec = chunk.center - self.cam.position
         
         # outside the NEAR and FAR planes?
-        sz = glm.dot(sphere_vec, self.cam.forward)
+        sz = glm.dot(sphere_vec, self.cam.look)
         if not (NEAR - CHUNK_SPHERE_RADIUS <= sz <= FAR + CHUNK_SPHERE_RADIUS):
             return False
         
