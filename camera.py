@@ -3,7 +3,7 @@ from frustum import Frustum
 
 
 class Camera:
-    def __init__(self, position, yaw, pitch):
+    def __init__(self, position, yaw, pitch, aspect_ratio=16 / 9):
         self.position = glm.vec3(position)
         self.yaw =glm.radians(yaw)
         self.pitch = glm.radians(pitch)
@@ -14,13 +14,19 @@ class Camera:
         self.forward = glm.vec3(0, 0, -1)
         self.look = glm.vec3(0, 0, -1)
         
-        self.m_proj = glm.perspective(V_FOV, ASPECT_RATIO, NEAR, FAR)
+        self.aspect_ratio = aspect_ratio
+        self.m_proj = glm.perspective(V_FOV, aspect_ratio, NEAR, FAR)
         self.m_view = glm.mat4()
         
         self.frustum = Frustum(self)
         
         self.fly = False
     
+    def set_aspect_ratio(self, aspect_ratio):
+        self.aspect_ratio = aspect_ratio
+        self.m_proj = glm.perspective(V_FOV, aspect_ratio, NEAR, FAR)
+        self.frustum.set_aspect_ratio(aspect_ratio)
+
     def update(self):
         self.update_vectors()
         self.update_view_matrix()

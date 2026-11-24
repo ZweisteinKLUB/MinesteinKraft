@@ -5,10 +5,11 @@ import math
 # OpenGL settings
 MAJOR_VER, MINOR_VER = 3, 3
 DEPTH_SIZE = 24
-NUM_SAMPLES = 1  # antialiasing
+NUM_SAMPLES = 0  # MSAA samples (0 = off); falls back to 0 if unsupported
 
-#resolution
-WIN_RES = glm.vec2(1600, 900)
+# preferred window size; shrunk to fit the desktop, window is resizable
+WIN_RES = (1600, 900)
+WIN_SCREEN_RATIO = 0.9  # max fraction of the desktop used by the window
 
 #world generation
 SEED = 16
@@ -35,16 +36,15 @@ CENTER_Y = WORLD_H * H_CHUNK_SIZE
 
 
 # camera
-ASPECT_RATIO = WIN_RES.x / WIN_RES.y
 FOV_DEG = 50
-V_FOV = glm.radians(FOV_DEG) # vertical FOV
-H_FOV = 2 * math.atan(math.tan(V_FOV * 0.5) * ASPECT_RATIO) # horizontal FOV
+V_FOV = glm.radians(FOV_DEG) # vertical FOV (horizontal FOV follows the window aspect ratio)
 NEAR = 0.1
 FAR = 2000.0
 PITCH_MAX = glm.radians(89)
 
 #player
 PLAYER_SPEED = 0.005
+PLAYER_SPRINT_FACTOR = 10
 PLAYER_ROT_SPEED = 0.003
 PLAYER_POS = glm.vec3(CENTER_XZ, WORLD_H * CHUNK_SIZE, CENTER_XZ)
 MOUSE_SENSITIVITY = 0.002
