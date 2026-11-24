@@ -21,26 +21,24 @@ class VoxelHandler:
     def add_voxel(self):
         if self.voxel_id:
             # check voxel id along normal
-            result = self.get_voxel_id(self.voxel_world_pos + self.voxel_normal)
-            
-            #is the new place empty?
-            if not result[0]:
-                _, voxel_index, _, chunk = result
+            new_pos = self.voxel_world_pos + self.voxel_normal
+            voxel_id, voxel_index, voxel_local_pos, chunk = self.get_voxel_id(new_pos)
+
+            # is the new place inside the world and empty?
+            if chunk is not None and not voxel_id:
                 chunk.voxels[voxel_index] = self.new_voxel_id
+                chunk.is_empty = False
                 chunk.mesh.rebuild()
-                
-                #was it an empty chunk
-                if chunk.is_empty:
-                    chunk.is_empty = False
-    
+                self.rebuild_adjacent_chunks(voxel_local_pos, new_pos)
+
     def rebuild_adj_chunk(self, adj_voxel_pos):
         index = get_chunk_index(adj_voxel_pos)
         if index != -1:
             self.chunks[index].mesh.rebuild()
     
-    def rebuild_adjacent_chunks(self):
-        lx, ly, lz = self.voxel_local_pos
-        wx, wy, wz = self.voxel_world_pos
+    def rebuild_adjacent_chunks(self, voxel_local_pos, voxel_world_pos):
+        lx, ly, lz = voxel_local_pos
+        wx, wy, wz = voxel_world_pos
         
         if lx == 0:
             self.rebuild_adj_chunk((wx - 1, wy, wz))
@@ -62,7 +60,7 @@ class VoxelHandler:
             self.chunk.voxels[self.voxel_index] = 0
             
             self.chunk.mesh.rebuild()
-            self.rebuild_adjacent_chunks()
+            self.rebuild_adjacent_chunks(self.voxel_local_pos, self.voxel_world_pos)
               
     def set_voxel(self):
         if self.interaction_mode:
@@ -79,10 +77,10 @@ class VoxelHandler:
     def ray_cast(self):
         # start point
         x1, y1, z1 = self.app.player.position
-        # end point
-        x2, y2, z2 = self.app.player.position + self.app.player.forward * MAX_RAY_DIST
+        # end point, along the view direction
+        x2, y2, z2 = self.app.player.position + self.app.player.look * MAX_RAY_DIST
         
-        current_voxel_pos = glm.ivec3(x1, y1, z1)
+        current_voxel_pos = glm.ivec3(glm.floor(self.app.player.position))
         self.voxel_id = 0
         self.voxel_normal = glm.ivec3(0)
         step_dir = -1
@@ -135,16 +133,18 @@ class VoxelHandler:
         return False
     
     def get_voxel_id(self, voxel_world_pos):
-        cx, cy, cz = chunk_pos = voxel_world_pos / CHUNK_SIZE
-        
+        """Return (voxel_id, voxel_index, voxel_local_pos, chunk); chunk is None outside the world."""
+        wx, wy, wz = (int(v) for v in voxel_world_pos)
+        # floor division, also correct for negative coordinates
+        cx, cy, cz = wx // CHUNK_SIZE, wy // CHUNK_SIZE, wz // CHUNK_SIZE
+
         if 0 <= cx < WORLD_W and 0 <= cy < WORLD_H and 0 <= cz < WORLD_D:
             chunk_index = cx + WORLD_W * cz + WORLD_AREA * cy
             chunk = self.chunks[chunk_index]
-            
-            lx, ly, lz = voxel_local_pos = voxel_world_pos - chunk_pos * CHUNK_SIZE
-            
+
+            lx, ly, lz = wx - cx * CHUNK_SIZE, wy - cy * CHUNK_SIZE, wz - cz * CHUNK_SIZE
             voxel_index = lx + CHUNK_SIZE * lz + CHUNK_AREA * ly
-            voxel_id = chunk.voxels[voxel_index]
-            
-            return voxel_id, voxel_index, voxel_local_pos, chunk
-        return 0, 0, 0, 0
+            voxel_id = int(chunk.voxels[voxel_index])
+
+            return voxel_id, voxel_index, glm.ivec3(lx, ly, lz), chunk
+        return 0, 0, None, None
