@@ -24,8 +24,8 @@ class VoxelHandler:
             new_pos = self.voxel_world_pos + self.voxel_normal
             voxel_id, voxel_index, voxel_local_pos, chunk = self.get_voxel_id(new_pos)
 
-            # is the new place inside the world and empty?
-            if chunk is not None and not voxel_id:
+            # is the new place inside the world, empty, and not inside the player?
+            if chunk is not None and not voxel_id and not self.app.player.intersects_block(*new_pos):
                 chunk.voxels[voxel_index] = self.new_voxel_id
                 chunk.is_empty = False
                 chunk.mesh.rebuild()

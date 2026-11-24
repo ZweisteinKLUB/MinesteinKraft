@@ -106,6 +106,7 @@ class VoxelEngine:
         self.player = Player(self, aspect_ratio=w / h)
         self.shader_program = ShaderProgram(self)
         self.scene = Scene(self)
+        self.player.spawn()  # stand on the ground once the world exists
 
     def update(self):
         self.player.update()

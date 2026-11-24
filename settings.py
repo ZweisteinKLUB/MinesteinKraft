@@ -46,11 +46,21 @@ FAR = 2000.0
 PITCH_MAX = glm.radians(89)
 
 #player
-PLAYER_SPEED = 0.005
-PLAYER_SPRINT_FACTOR = 10
+PLAYER_SPEED = 0.005  # blocks per millisecond (5 blocks/s)
+PLAYER_SPRINT_FACTOR = 10  # fly mode sprint
+WALK_SPRINT_FACTOR = 1.6  # walking sprint
 PLAYER_ROT_SPEED = 0.003
-PLAYER_POS = glm.vec3(CENTER_XZ, WORLD_H * CHUNK_SIZE, CENTER_XZ)
+PLAYER_POS = glm.vec3(CENTER_XZ, WORLD_H * CHUNK_SIZE, CENTER_XZ)  # eye position before spawning
 MOUSE_SENSITIVITY = 0.002
+
+# player body and physics (units: blocks, seconds)
+PLAYER_WIDTH = 0.6
+PLAYER_HEIGHT = 1.8
+PLAYER_EYE_HEIGHT = 1.62
+GRAVITY = 28.0
+JUMP_HEIGHT = 1.25  # enough to climb one block, not two
+MAX_FALL_SPEED = 50.0
+STEP_HEIGHT = 0.5  # obstacles up to this height are climbed automatically
 
 # colors
 BG_COLOR = glm.vec3(0.58, 0.83, 0.99)
