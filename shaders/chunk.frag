@@ -12,6 +12,8 @@ uniform float u_time;
 uniform float u_underwater;      // 1.0 when the camera is below the water line
 uniform vec3 water_fog_color;
 uniform float water_fog_density;
+uniform float u_fog_start;
+uniform float u_fog_end;
 
 in vec2 uv;
 in float shading;
@@ -28,6 +30,12 @@ float caustics(vec2 p, float t) {
     return pow(abs(a + b) * 0.5, 2.0);
 }
 
+
+// light distance haze, then opaque between u_fog_start and u_fog_end (edge of the loaded area)
+float sky_fog(float dist) {
+    float haze = 1.0 - exp2(-0.00001 * dist * dist);
+    return max(haze, smoothstep(u_fog_start, u_fog_end, dist));
+}
 
 void main() {
     vec2 face_uv = uv;
@@ -52,7 +60,7 @@ void main() {
         tex_col = mix(tex_col, pow(water_fog_color, gamma),
                       1.0 - exp(-water_fog_density * fog_dist * fog_dist));
     } else {
-        tex_col = mix(tex_col, pow(bg_color, gamma), (1.0 - exp2(-0.00001 * fog_dist * fog_dist)));
+        tex_col = mix(tex_col, pow(bg_color, gamma), sky_fog(fog_dist));
     }
 
     tex_col = pow(tex_col, inv_gamma);

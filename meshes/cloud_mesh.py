@@ -3,10 +3,14 @@ from meshes.base_mesh import BaseMesh
 from noise import noise2
 
 
+CLOUD_CELLS = WORLD_W * CHUNK_SIZE  # cloud grid size (cells of CLOUD_SCALE blocks)
+
+
 class CloudMesh(BaseMesh):
-    def __init__(self, app):
+    def __init__(self, app, origin=(0, 0)):
         super().__init__()
         self.app = app
+        self.origin = origin
 
         self.ctx = self.app.ctx
         self.program = self.app.shader_program.clouds
@@ -15,14 +19,17 @@ class CloudMesh(BaseMesh):
         self.vao = self.get_vao()
 
     def get_vertex_data(self):
-        return build_cloud_mesh(gen_clouds())
+        return build_cloud_mesh(gen_clouds(*self.origin))
 
 
-def gen_clouds():
-    """Cloud coverage map, shape (depth, width), indexed [z, x]."""
-    width, depth = WORLD_W * CHUNK_SIZE, WORLD_D * CHUNK_SIZE
-    x = np.arange(width)[None, :]
-    z = np.arange(depth)[:, None]
+def gen_clouds(origin_x=0, origin_z=0, cells=CLOUD_CELLS):
+    """Cloud coverage, shape (cells, cells) indexed [z, x], for absolute cells from the origin.
+
+    Sampling the noise at absolute cell coordinates keeps the clouds in place when the
+    mesh is rebuilt around a new origin.
+    """
+    x = (origin_x + np.arange(cells))[None, :]
+    z = (origin_z + np.arange(cells))[:, None]
     return noise2(0.13 * x, 0.13 * z) >= 0.2
 
 

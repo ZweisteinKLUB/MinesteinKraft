@@ -33,6 +33,15 @@ WORLD_D = WORLD_W
 WORLD_AREA = WORLD_W * WORLD_D
 WORLD_VOL = WORLD_AREA * WORLD_H
 
+# world streaming (the world is unbounded horizontally; WORLD_W x WORLD_D is the base area)
+RENDER_DISTANCE = 8         # chunks loaded around the player (horizontal radius)
+UNLOAD_MARGIN = 2           # extra chunks kept before unloading (avoids load / unload flicker)
+CHUNK_BUDGET_MS = 6.0       # time per frame spent loading / generating / meshing chunks
+AUTOSAVE_INTERVAL = 5.0     # seconds between saves of modified / new chunks
+# fog: light haze, then fully opaque at the edge of the loaded area (hides chunk pop-in)
+FOG_END = (RENDER_DISTANCE - 1) * CHUNK_SIZE
+FOG_START = 0.55 * FOG_END
+
 # world center
 CENTER_XZ = WORLD_W * H_CHUNK_SIZE
 CENTER_Y = WORLD_H * H_CHUNK_SIZE

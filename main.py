@@ -2,6 +2,12 @@ from settings import *
 import moderngl as mgl
 import pygame as pg
 import sys
+import argparse
+import random
+from pathlib import Path
+import noise
+import paths
+from storage import WorldStore, list_worlds
 from shader_program import ShaderProgram
 from scene import Scene
 from player import Player
@@ -30,7 +36,8 @@ def show_fatal_error(message):
 
 
 class VoxelEngine:
-    def __init__(self):
+    def __init__(self, store):
+        self.store = store
         pg.init()
         self.window_size = self.create_window()
         self.ctx = self.create_context()
@@ -103,12 +110,35 @@ class VoxelEngine:
 
     # ------------------------------------------------------------------ game loop
     def on_init(self):
+        noise.set_seed(self.store.seed)  # the world's own generator seed
+        if self.store.generator_version != GENERATOR_VERSION:
+            print(f'warning: world made with generator v{self.store.generator_version}, '
+                  f'current is v{GENERATOR_VERSION}: new chunks may not match', file=sys.stderr)
         self.texture = Textures(self)
         w, h = self.window_size
         self.player = Player(self, aspect_ratio=w / h)
         self.shader_program = ShaderProgram(self)
         self.scene = Scene(self)
-        self.player.spawn()  # stand on the ground once the world exists
+        world = self.scene.world
+
+        if self.store.chunk_count() == 0:
+            world.generate_base_area()  # first launch of this world: build and save the island
+
+        saved = self.store.load_player()
+        if saved:
+            world.load_area(saved['x'], saved['z'], radius=2)
+            self.player.restore(saved)
+        else:
+            world.load_area(CENTER_XZ, CENTER_XZ, radius=2)
+            self.player.spawn()  # stand on the ground of the island
+        world.save()
+
+    def save_and_close(self):
+        world = self.scene.world
+        world.save()
+        self.store.touch()
+        world.release()
+        self.store.close()
 
     def update(self):
         self.player.update()
@@ -149,13 +179,36 @@ class VoxelEngine:
             self.handle_events()
             self.update()
             self.render()
+        self.save_and_close()
         pg.quit()
-        sys.exit()
 
 
-def main():
-    app = VoxelEngine()
+def new_world_seed():
+    return random.SystemRandom().getrandbits(48)
+
+
+def open_last_or_new_world(worlds_dir):
+    """Most recently played readable world, or a new one."""
+    for info in list_worlds(worlds_dir):
+        if not info.error:
+            return WorldStore.open(info.path)
+    return WorldStore.create(worlds_dir, 'Monde 1', new_world_seed(), GENERATOR_VERSION)
+
+
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(description='MinesteinKraft voxel game')
+    parser.add_argument('--world-dir', type=Path, default=None,
+                        help='folder holding the saves (default: per-user data folder)')
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    args = parse_args(argv)
+    worlds = paths.worlds_dir(args.world_dir)
+    store = open_last_or_new_world(worlds)
+    app = VoxelEngine(store)
     app.run()
+    sys.exit()
 
 
 if __name__ == '__main__':

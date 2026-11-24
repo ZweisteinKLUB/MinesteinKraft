@@ -9,7 +9,7 @@ from world_objects.clouds import Clouds
 class Scene:
     def __init__(self, app):
         self.app = app
-        self.world = World(self.app)
+        self.world = World(self.app, app.store)
         self.voxel_marker = VoxelMarker(self.world.voxel_handler)
         self.cracks = Cracks(self.world.voxel_handler)
         self.water = Water(app)

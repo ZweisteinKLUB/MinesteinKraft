@@ -12,6 +12,14 @@ uniform float water_line;
 uniform float u_underwater;
 uniform vec3 water_fog_color;
 uniform float water_fog_density;
+uniform float u_fog_start;
+uniform float u_fog_end;
+
+// light distance haze, then opaque between u_fog_start and u_fog_end (edge of the loaded area)
+float sky_fog(float dist) {
+    float haze = 1.0 - exp2(-0.00001 * dist * dist);
+    return max(haze, smoothstep(u_fog_start, u_fog_end, dist));
+}
 
 void main() {
     vec3 tex_col = texture(u_texture_0, uv).rgb;
@@ -26,7 +34,7 @@ void main() {
         tex_col = mix(tex_col, pow(water_fog_color, gamma), fog);
         alpha = mix(0.75, 1.0, fog);
     } else {
-        alpha = mix(0.5, 0.0, 1.0 - exp(-0.000002 * fog_dist * fog_dist));
+        alpha = mix(0.5, 0.0, sky_fog(fog_dist));
     }
 
     tex_col = pow(tex_col, inv_gamma);

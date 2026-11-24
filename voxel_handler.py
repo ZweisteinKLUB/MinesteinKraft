@@ -32,14 +32,13 @@ class VoxelHandler:
             # is the new place inside the world, empty, and not inside the player?
             if chunk is not None and not voxel_id and not self.app.player.intersects_block(*new_pos):
                 chunk.voxels[voxel_index] = self.new_voxel_id
-                chunk.is_empty = False
-                chunk.mesh.rebuild()
+                self.world.on_chunk_modified(chunk)
                 self.rebuild_adjacent_chunks(voxel_local_pos, new_pos)
 
     def rebuild_adj_chunk(self, adj_voxel_pos):
         chunk = self.world.get_chunk(get_chunk_key(adj_voxel_pos))
         if chunk is not None and chunk.mesh is not None:
-            chunk.mesh.rebuild()
+            chunk.build_mesh()
     
     def rebuild_adjacent_chunks(self, voxel_local_pos, voxel_world_pos):
         lx, ly, lz = voxel_local_pos
@@ -63,8 +62,7 @@ class VoxelHandler:
     def remove_voxel(self):
         if self.voxel_id:
             self.chunk.voxels[self.voxel_index] = 0
-            
-            self.chunk.mesh.rebuild()
+            self.world.on_chunk_modified(self.chunk)
             self.rebuild_adjacent_chunks(self.voxel_local_pos, self.voxel_world_pos)
               
     def set_voxel(self):

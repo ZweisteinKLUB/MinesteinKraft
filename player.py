@@ -36,6 +36,15 @@ class Player(Camera):
         self.on_ground = True
         self.sync_camera()
 
+    def restore(self, state):
+        """Put the player back where the world was saved."""
+        self.feet = glm.vec3(state['x'], state['y'], state['z'])
+        self.yaw, self.pitch, self.fly = state['yaw'], state['pitch'], state['fly']
+        self.velocity = glm.vec3(0)
+        self.on_ground = False
+        self.sync_camera()
+        self.update_vectors()
+
     def sync_camera(self):
         self.position = self.feet + glm.vec3(0, PLAYER_EYE_HEIGHT, 0)
 

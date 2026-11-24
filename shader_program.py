@@ -40,6 +40,8 @@ class ShaderProgram:
         su(self.chunk, 'u_texture_array_0', 1)
         su(self.chunk, 'bg_color', BG_COLOR)
         su(self.chunk, 'water_line', WATER_LINE)
+        su(self.chunk, 'u_fog_start', FOG_START)
+        su(self.chunk, 'u_fog_end', FOG_END)
 
         # marker
         su(self.voxel_marker, 'm_model', glm.mat4())
@@ -49,9 +51,10 @@ class ShaderProgram:
         su(self.water, 'u_texture_0', 2)
         su(self.water, 'water_area', WATER_AREA)
         su(self.water, 'water_line', WATER_LINE)
+        su(self.water, 'u_fog_start', FOG_START)
+        su(self.water, 'u_fog_end', FOG_END)
 
         # clouds
-        su(self.clouds, 'center', CENTER_XZ)
         su(self.clouds, 'bg_color', BG_COLOR)
         su(self.clouds, 'cloud_scale', CLOUD_SCALE)
 
@@ -70,6 +73,9 @@ class ShaderProgram:
         for program in (self.chunk, self.water, self.clouds):
             self.set_uniform(program, 'u_underwater', underwater)
         self.set_uniform(self.chunk, 'u_time', self.app.time)
+        # the water plane follows the camera, snapped to whole blocks
+        cam = self.player.position
+        self.set_uniform(self.water, 'u_center', (float(math.floor(cam.x)), float(math.floor(cam.z))))
 
     def get_program(self, shader_name):
         return load_program(self.ctx, shader_name)
