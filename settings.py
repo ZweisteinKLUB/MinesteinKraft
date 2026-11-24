@@ -81,6 +81,10 @@ DIRT_LVL = 40
 GRASS_LVL = 8
 SAND_LVL = 7
 
+# island: terrain sinks into the sea beyond this distance from the world center
+ISLAND_RADIUS = 0.85 * CENTER_XZ
+ISLAND_FALLOFF = 20  # higher = steeper coast
+
 # tree settings
 TREE_PROBABILITY = 0.02
 TREE_WIDTH, TREE_HEIGHT = 4, 8
@@ -96,7 +100,7 @@ WATER_DRAG = 4.0          # 1/s, brakes falls into the water
 SWIM_UP_ACCEL = 17.0      # Space: rises at ~3 blocks/s
 DIVE_ACCEL = 9.0          # Left Shift: dives at ~3.5 blocks/s
 WATER_SPEED_FACTOR = 0.55 # horizontal speed in water
-WATER_CLIMB_SPEED = 7.5   # boost to climb out onto a bank
+WATER_CLIMB_SPEED = 9.5   # boost to climb out onto a bank up to ~1.5 block above the water
 WATER_ENTRY_DAMPING = 0.3 # vertical speed kept when plunging into the water
 
 # underwater ambiance

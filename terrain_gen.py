@@ -12,8 +12,9 @@ def get_height(x, z):
     x = np.asarray(x, dtype=np.float64)
     z = np.asarray(z, dtype=np.float64)
 
-    # island mask
-    island = 1 / ((0.0025 * np.hypot(x - CENTER_XZ, z - CENTER_XZ)) ** 20 + 0.0001)
+    # island mask, scaled to the world size: ~1 inside ISLAND_RADIUS, then drops to the sea floor
+    dist = np.hypot(x - CENTER_XZ, z - CENTER_XZ)
+    island = 1 / ((dist / ISLAND_RADIUS) ** ISLAND_FALLOFF + 0.0001)
     island = np.minimum(island, 1)
 
     # amplitude
@@ -30,8 +31,8 @@ def get_height(x, z):
     height = height + noise2(x * f4, z * f4) * a4 + a4
     height = height + noise2(x * f8, z * f8) * a8 + a8
 
-    height = np.maximum(height, 1) * island
-    return height.astype(np.int64)
+    height = (np.maximum(height, 1) * island).astype(np.int64)
+    return np.maximum(height, 1)  # the sea floor is never empty
 
 
 def get_index(x, y, z):

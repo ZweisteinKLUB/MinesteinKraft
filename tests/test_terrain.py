@@ -29,3 +29,14 @@ def test_terrain_follows_height_map():
 def test_only_known_voxel_ids():
     ids = set(np.unique(gen(CHUNK_SIZE, 0, CHUNK_SIZE)).tolist())
     assert ids <= {0, SAND, GRASS, DIRT, STONE, SNOW, LEAVES, WOOD}
+
+
+def test_island_is_surrounded_by_deep_sea():
+    size = WORLD_W * CHUNK_SIZE
+    border = [(x, 0) for x in range(0, size, 8)] + [(0, z) for z in range(0, size, 8)]
+    xs, zs = np.array(border).T
+    heights = get_height(xs, zs)
+    assert np.all(heights >= 1)
+    # deep enough for the player's head to go under water at the world border
+    assert np.all(heights <= WATER_LINE - PLAYER_EYE_HEIGHT)
+    assert get_height(CENTER_XZ, CENTER_XZ) > WATER_LINE  # land in the middle
