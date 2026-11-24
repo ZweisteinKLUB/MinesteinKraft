@@ -90,6 +90,19 @@ TREE_H_WIDTH, TREE_H_HEIGHT = TREE_WIDTH // 2, TREE_HEIGHT // 2
 WATER_LINE = 5.6
 WATER_AREA = 5 * CHUNK_SIZE * WORLD_W
 
+# swimming (units: blocks, seconds); terminal speed = acceleration / drag
+WATER_GRAVITY = 5.0       # net sinking acceleration (gravity minus buoyancy)
+WATER_DRAG = 4.0          # 1/s, brakes falls into the water
+SWIM_UP_ACCEL = 17.0      # Space: rises at ~3 blocks/s
+DIVE_ACCEL = 9.0          # Left Shift: dives at ~3.5 blocks/s
+WATER_SPEED_FACTOR = 0.55 # horizontal speed in water
+WATER_CLIMB_SPEED = 7.5   # boost to climb out onto a bank
+WATER_ENTRY_DAMPING = 0.3 # vertical speed kept when plunging into the water
+
+# underwater ambiance
+WATER_FOG_COLOR = glm.vec3(0.04, 0.22, 0.42)
+WATER_FOG_DENSITY = 0.006  # visibility ~ 20-25 blocks
+
 # cloud
 CLOUD_SCALE = 25
 CLOUD_HEIGHT = WORLD_H * CHUNK_SIZE * 2

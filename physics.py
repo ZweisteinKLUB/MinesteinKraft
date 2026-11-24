@@ -64,7 +64,7 @@ def _move_horizontal(feet, dx, dz, width, height, block_height):
     return feet, blocked_x, blocked_z
 
 
-def _substep(feet, vel, dt, width, height, block_height, step_height, on_ground):
+def _substep(feet, vel, dt, width, height, block_height, step_height, on_ground, step_anywhere):
     dx, dy, dz = vel[0] * dt, vel[1] * dt, vel[2] * dt
 
     feet, blocked_y = _move_axis(feet, 1, dy, width, height, block_height)
@@ -78,8 +78,8 @@ def _substep(feet, vel, dt, width, height, block_height, step_height, on_ground)
     start = feet
     feet, blocked_x, blocked_z = _move_horizontal(feet, dx, dz, width, height, block_height)
 
-    # auto step: climb obstacles lower than step_height while walking on the ground
-    if (blocked_x or blocked_z) and on_ground and step_height > 0:
+    # auto step: climb obstacles lower than step_height while on the ground (or swimming)
+    if (blocked_x or blocked_z) and (on_ground or step_anywhere) and step_height > 0:
         raised, _ = _move_axis(start, 1, step_height, width, height, block_height)
         stepped, s_bx, s_bz = _move_horizontal(raised, dx, dz, width, height, block_height)
         stepped, _ = _move_axis(stepped, 1, -(raised[1] - start[1]) - EPS, width, height, block_height)
@@ -97,10 +97,12 @@ def _substep(feet, vel, dt, width, height, block_height, step_height, on_ground)
     return feet, on_ground
 
 
-def step(feet, velocity, dt, block_height, width, height, step_height=0.0, on_ground=False):
+def step(feet, velocity, dt, block_height, width, height, step_height=0.0, on_ground=False,
+         step_anywhere=False):
     """Advance the player box by ``dt`` seconds with collisions.
 
     Returns (feet, velocity, on_ground). Blocked velocity components are zeroed.
+    ``step_anywhere`` allows the auto step without ground contact (swimming).
     """
     dt = min(max(dt, 0.0), MAX_DT)
     vel = list(velocity)
@@ -113,5 +115,22 @@ def step(feet, velocity, dt, block_height, width, height, step_height=0.0, on_gr
     # "on ground" is re-evaluated: probe just below the feet
     on_ground = on_ground and collides((feet[0], feet[1] - 2 * EPS, feet[2]), width, height, block_height)
     for _ in range(n):
-        feet, on_ground = _substep(feet, vel, sub_dt, width, height, block_height, step_height, on_ground)
+        feet, on_ground = _substep(feet, vel, sub_dt, width, height, block_height, step_height, on_ground,
+                                   step_anywhere)
     return tuple(feet), tuple(vel), on_ground
+
+
+def water_vertical_velocity(vy, dt, swim, gravity, drag, up_accel, down_accel):
+    """Vertical speed in water: weak net gravity (buoyancy), linear drag, swimming.
+
+    ``swim`` is +1 (swim up), -1 (dive) or 0. Terminal speeds are accel / drag,
+    so sinking is slow and a fast fall is braked when entering the water.
+    """
+    dt = min(max(dt, 0.0), MAX_DT)
+    accel = -gravity
+    if swim > 0:
+        accel += up_accel
+    elif swim < 0:
+        accel -= down_accel
+    vy += accel * dt
+    return vy * math.exp(-drag * dt)

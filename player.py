@@ -24,6 +24,7 @@ class Player(Camera):
         self.feet = glm.vec3(position) - glm.vec3(0, PLAYER_EYE_HEIGHT, 0)
         self.velocity = glm.vec3(0)
         self.on_ground = False
+        self.was_in_water = False
 
     # ------------------------------------------------------------------ setup
     def spawn(self, x=CENTER_XZ, z=CENTER_XZ):
@@ -116,20 +117,50 @@ class Player(Camera):
             if sprint:
                 speed *= WALK_SPRINT_FACTOR
             wish.y = 0
+            in_water = self.feet.y < WATER_LINE
+            if in_water:
+                speed *= WATER_SPEED_FACTOR
             horizontal = glm.normalize(wish) * speed if glm.length(wish) > 0 else glm.vec3(0)
-            vy = self.velocity.y - GRAVITY * min(dt, physics.MAX_DT)
-            if vertical > 0 and self.on_ground:
-                vy = JUMP_SPEED
+
+            if in_water:
+                if not self.was_in_water and self.velocity.y < 0:
+                    self.velocity.y *= WATER_ENTRY_DAMPING  # splash: plunging brakes hard
+                # buoyancy + drag; Space swims up, Left Shift dives
+                vy = physics.water_vertical_velocity(
+                    self.velocity.y, dt, vertical, WATER_GRAVITY, WATER_DRAG, SWIM_UP_ACCEL, DIVE_ACCEL)
+                if vertical > 0 and self.feet.y > WATER_LINE - 1.0 and self.touching_wall(horizontal):
+                    vy = max(vy, WATER_CLIMB_SPEED)  # hoist out onto the bank
+            else:
+                vy = self.velocity.y - GRAVITY * min(dt, physics.MAX_DT)
+                if vertical > 0 and self.on_ground:
+                    vy = JUMP_SPEED
             velocity = glm.vec3(horizontal.x, max(vy, -MAX_FALL_SPEED), horizontal.z)
             step_height = STEP_HEIGHT
 
+        self.was_in_water = not self.fly and self.feet.y < WATER_LINE
         feet, vel, self.on_ground = physics.step(
             tuple(self.feet), tuple(velocity), dt, self.app.scene.world.block_height,
             PLAYER_WIDTH, PLAYER_HEIGHT, step_height, self.on_ground,
+            step_anywhere=not self.fly and self.feet.y < WATER_LINE,
         )
         self.feet = glm.vec3(feet)
         self.velocity = glm.vec3(vel)
         self.sync_camera()
+
+    @property
+    def in_water(self):
+        return self.feet.y < WATER_LINE
+
+    @property
+    def head_underwater(self):
+        return self.position.y < WATER_LINE
+
+    def touching_wall(self, horizontal):
+        """Is there a block right in front of the player in the moving direction?"""
+        if glm.length(horizontal) == 0:
+            return False
+        probe = self.feet + glm.normalize(horizontal) * 0.1
+        return physics.collides(tuple(probe), PLAYER_WIDTH, PLAYER_HEIGHT, self.app.scene.world.block_height)
 
     def keyboard_event(self, event):
         # One pulse key handling

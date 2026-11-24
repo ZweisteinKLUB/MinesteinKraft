@@ -133,3 +133,37 @@ def test_collides():
     world = FakeWorld()
     assert collides((0.5, 0.5, 0.5), W, H, world)
     assert not collides((0.5, 1.0 + EPS, 0.5), W, H, world)
+
+
+# ---------------------------------------------------------------- water
+from physics import water_vertical_velocity
+
+WATER = dict(gravity=5.0, drag=4.0, up_accel=17.0, down_accel=9.0)
+
+
+def settle(vy, swim, seconds=5.0):
+    for _ in range(int(seconds / DT)):
+        vy = water_vertical_velocity(vy, DT, swim, **WATER)
+    return vy
+
+
+def test_water_terminal_speeds():
+    assert settle(0.0, 0) == pytest.approx(-5.0 / 4.0, rel=0.05)    # slow sinking
+    assert settle(0.0, 1) == pytest.approx(12.0 / 4.0, rel=0.05)    # swim up
+    assert settle(0.0, -1) == pytest.approx(-14.0 / 4.0, rel=0.05)  # dive
+
+
+def test_water_brakes_fast_fall():
+    vy = -30.0
+    for _ in range(30):  # half a second
+        vy = water_vertical_velocity(vy, DT, 0, **WATER)
+    assert -6.0 < vy < -1.0
+
+
+def test_step_anywhere_while_swimming():
+    world = FakeWorld()
+    world.blocks[(2, 1, 0)] = 0.5
+    feet, vel, _ = (0.5, 1.2, 0.5), (3.0, 0.0, 0.0), False  # floating above the floor
+    for _ in range(30):
+        feet, vel, _ = step(feet, (3.0, 0.0, 0.0), DT, world, W, H, 0.5, False, step_anywhere=True)
+    assert feet[0] > 2.0

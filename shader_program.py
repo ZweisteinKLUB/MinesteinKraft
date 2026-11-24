@@ -58,9 +58,18 @@ class ShaderProgram:
         # cracks
         su(self.crack, 'u_cracks', 3)
 
+        # underwater ambiance
+        for program in (self.chunk, self.water, self.clouds):
+            su(program, 'water_fog_color', WATER_FOG_COLOR)
+            su(program, 'water_fog_density', WATER_FOG_DENSITY)
+
     def update(self):
         for program in self.programs:
             self.set_uniform(program, 'm_view', self.player.m_view)
+        underwater = 1.0 if self.player.head_underwater else 0.0
+        for program in (self.chunk, self.water, self.clouds):
+            self.set_uniform(program, 'u_underwater', underwater)
+        self.set_uniform(self.chunk, 'u_time', self.app.time)
 
     def get_program(self, shader_name):
         return load_program(self.ctx, shader_name)
