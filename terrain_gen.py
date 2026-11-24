@@ -3,20 +3,17 @@
 Voxel arrays are flat, indexed as ``x + CHUNK_SIZE * z + CHUNK_AREA * y``,
 which is a C-ordered array of shape (y, z, x).
 """
-from noise import noise2, noise3
+from noise import noise2, noise3, get_seed
 from settings import *
 
 
-def get_height(x, z):
-    """Terrain height (int array) for world columns x, z (arrays or scalars)."""
-    x = np.asarray(x, dtype=np.float64)
-    z = np.asarray(z, dtype=np.float64)
+def smoothstep(edge0, edge1, x):
+    t = np.clip((x - edge0) / (edge1 - edge0), 0.0, 1.0)
+    return t * t * (3.0 - 2.0 * t)
 
-    # island mask, scaled to the world size: ~1 inside ISLAND_RADIUS, then drops to the sea floor
-    dist = np.hypot(x - CENTER_XZ, z - CENTER_XZ)
-    island = 1 / ((dist / ISLAND_RADIUS) ** ISLAND_FALLOFF + 0.0001)
-    island = np.minimum(island, 1)
 
+def base_relief(x, z):
+    """Hills and mountains (float array), before any land / sea mask."""
     # amplitude
     a1 = float(CENTER_Y)
     a2, a4, a8 = a1 * 0.5, a1 * 0.25, a1 * 0.125
@@ -30,9 +27,35 @@ def get_height(x, z):
     height = height + noise2(x * f2, z * f2) * a2 - a2
     height = height + noise2(x * f4, z * f4) * a4 + a4
     height = height + noise2(x * f8, z * f8) * a8 + a8
+    return np.maximum(height, 1)
 
-    height = (np.maximum(height, 1) * island).astype(np.int64)
-    return np.maximum(height, 1)  # the sea floor is never empty
+
+def get_height(x, z, archipelago=True):
+    """Terrain height (int array) for world columns x, z (arrays or scalars).
+
+    A pure function of the coordinates and the world seed, so chunks generated
+    at different times always match at their borders.
+    """
+    x = np.asarray(x, dtype=np.float64)
+    z = np.asarray(z, dtype=np.float64)
+    relief = base_relief(x, z)
+
+    # starting island, scaled to the base area: ~1 inside ISLAND_RADIUS, then sea
+    dist = np.hypot(x - CENTER_XZ, z - CENTER_XZ)
+    island = np.minimum(1 / ((dist / ISLAND_RADIUS) ** ISLAND_FALLOFF + 0.0001), 1)
+    height = relief * island
+
+    if archipelago:
+        # beyond the starting island: more islands and land masses, varied sea floor.
+        # Faded out near the start so the base area and its sea belt never change.
+        clear = smoothstep(*START_CLEAR_RADIUS, dist)
+        s = ARCHIPELAGO_SCALE
+        continent = noise2(x / s, z / s) * 0.75 + noise2(x / (s * 0.35) + 100, z / (s * 0.35) - 100) * 0.25
+        land = smoothstep(ARCHIPELAGO_THRESHOLD, ARCHIPELAGO_THRESHOLD + 0.2, continent) * clear
+        sea_floor = 1 + 3 * (noise2(x / 90 + 300, z / 90 - 300) * 0.5 + 0.5) * clear
+        height = np.maximum(np.maximum(height, relief * land), sea_floor)
+
+    return np.maximum(height, 1).astype(np.int64)  # the sea floor is never empty
 
 
 def get_index(x, y, z):
@@ -40,8 +63,10 @@ def get_index(x, y, z):
 
 
 def chunk_rng(cx, cy, cz):
-    """Deterministic random generator for a chunk (world voxel origin cx, cy, cz)."""
-    return np.random.default_rng([SEED & 0xFFFFFFFF, cx & 0xFFFFFFFF, cy & 0xFFFFFFFF, cz & 0xFFFFFFFF])
+    """Deterministic random generator for a chunk (world voxel origin cx, cy, cz) and the world seed."""
+    seed = get_seed()
+    return np.random.default_rng([seed & 0xFFFFFFFF, (seed >> 32) & 0xFFFFFFFF,
+                                  cx & 0xFFFFFFFF, cy & 0xFFFFFFFF, cz & 0xFFFFFFFF])
 
 
 def generate_terrain(voxels, cx, cy, cz):

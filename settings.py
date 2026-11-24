@@ -85,6 +85,12 @@ SAND_LVL = 7
 ISLAND_RADIUS = 0.85 * CENTER_XZ
 ISLAND_FALLOFF = 20  # higher = steeper coast
 
+# archipelago beyond the starting island (world extension)
+GENERATOR_VERSION = 1           # stored in each world; bump when the generator changes
+ARCHIPELAGO_SCALE = 450.0       # size of the land / sea patterns (blocks)
+ARCHIPELAGO_THRESHOLD = 0.15    # higher = less land
+START_CLEAR_RADIUS = (120.0, 190.0)  # no archipelago land inside, full effect beyond
+
 # tree settings
 TREE_PROBABILITY = 0.02
 TREE_WIDTH, TREE_HEIGHT = 4, 8

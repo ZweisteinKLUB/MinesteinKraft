@@ -26,6 +26,19 @@ def make_permutation(seed):
 
 _PERM = make_permutation(SEED)
 _PERM_MOD12 = _PERM % 12
+_SEED = SEED
+
+
+def set_seed(seed):
+    """Select the world seed used by noise2 / noise3 (one world at a time)."""
+    global _PERM, _PERM_MOD12, _SEED
+    _SEED = int(seed)
+    _PERM = make_permutation(_SEED)
+    _PERM_MOD12 = _PERM % 12
+
+
+def get_seed():
+    return _SEED
 
 
 def _corner(t, gi, *offsets):
@@ -37,7 +50,9 @@ def _corner(t, gi, *offsets):
     return t2 * t2 * dot
 
 
-def noise2(x, y, perm=_PERM, perm12=_PERM_MOD12):
+def noise2(x, y, perm=None, perm12=None):
+    if perm is None:
+        perm, perm12 = _PERM, _PERM_MOD12
     x = np.asarray(x, dtype=np.float64)
     y = np.asarray(y, dtype=np.float64)
 
@@ -68,7 +83,9 @@ def noise2(x, y, perm=_PERM, perm12=_PERM_MOD12):
     return 70.0 * (n0 + n1 + n2)
 
 
-def noise3(x, y, z, perm=_PERM, perm12=_PERM_MOD12):
+def noise3(x, y, z, perm=None, perm12=None):
+    if perm is None:
+        perm, perm12 = _PERM, _PERM_MOD12
     x, y, z = np.broadcast_arrays(
         np.asarray(x, dtype=np.float64),
         np.asarray(y, dtype=np.float64),
