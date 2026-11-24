@@ -3,11 +3,11 @@ from meshes.base_mesh import BaseMesh
 
 
 class CubeMesh(BaseMesh):
-    def __init__(self, app):
+    def __init__(self, app, program=None):
         super().__init__()
         self.app = app
         self.ctx = self.app.ctx
-        self.program = self.app.shader_program.voxel_marker
+        self.program = program or self.app.shader_program.voxel_marker
 
         self.vbo_format = '2f2 3f2'
         self.attrs = ('in_tex_coord_0', 'in_position',)

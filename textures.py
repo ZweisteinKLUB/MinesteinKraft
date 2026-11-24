@@ -1,6 +1,7 @@
 import pygame as pg
 import moderngl as mgl
 from paths import resource_path
+from block_breaking import make_crack_stages
 
 
 class Textures:
@@ -13,10 +14,13 @@ class Textures:
         self.texture_1 = self.load('water.png')
         self.texture_array_0 = self.load('tex_array_0.png', is_tex_array=True)
 
+        self.cracks = load_crack_textures(self.ctx)
+
         #assign texture unit
         self.texture_0.use(location=0)
         self.texture_array_0.use(location=1)
         self.texture_1.use(location=2)
+        self.cracks.use(location=3)
 
     def load(self, file_name, is_tex_array=False):
         return load_texture(self.ctx, file_name, is_tex_array)
@@ -43,5 +47,14 @@ def load_texture(ctx, file_name, is_tex_array=False):
     # clamp anisotropy to what the driver supports
     texture.anisotropy = min(16.0, float(ctx.info.get('GL_MAX_TEXTURE_MAX_ANISOTROPY') or 16.0))
     texture.build_mipmaps()
+    texture.filter = (mgl.NEAREST, mgl.NEAREST)
+    return texture
+
+
+def load_crack_textures(ctx):
+    """Procedural crack stages as a texture array (one layer per stage)."""
+    images = make_crack_stages()
+    stages, height, width, _ = images.shape
+    texture = ctx.texture_array(size=(width, height, stages), components=4, data=images.tobytes())
     texture.filter = (mgl.NEAREST, mgl.NEAREST)
     return texture

@@ -57,13 +57,18 @@ class Player(Camera):
     def handle_event(self, event):
         if not self.app.mouse_captured:
             return
-        # adding and removing voxels with clicks
+        # left button: hold to break (cracks appear), click to place; right: switch mode
+        voxel_handler = self.app.scene.world.voxel_handler
         if event.type == pg.MOUSEBUTTONDOWN:
-            voxel_handler = self.app.scene.world.voxel_handler
             if event.button == 1:
-                voxel_handler.set_voxel()
+                if voxel_handler.interaction_mode:
+                    voxel_handler.set_voxel()
+                else:
+                    voxel_handler.breaking = True
             if event.button == 3:
                 voxel_handler.switch_mode()
+        if event.type == pg.MOUSEBUTTONUP and event.button == 1:
+            voxel_handler.breaking = False
         if event.type == pg.KEYDOWN:
             self.keyboard_event(event)
 

@@ -2,6 +2,7 @@ from settings import *
 import moderngl as mgl
 from world import World
 from world_objects.voxel_marker import VoxelMarker
+from world_objects.cracks import Cracks
 from world_objects.water import Water
 from world_objects.clouds import Clouds
 
@@ -10,6 +11,7 @@ class Scene:
         self.app = app
         self.world = World(self.app)
         self.voxel_marker = VoxelMarker(self.world.voxel_handler)
+        self.cracks = Cracks(self.world.voxel_handler)
         self.water = Water(app)
         self.clouds = Clouds(app)
         
@@ -21,6 +23,7 @@ class Scene:
     def render(self):
         # chunks rendering
         self.world.render()
+        self.cracks.render()
         
         # rendering without cull face
         self.app.ctx.disable(mgl.CULL_FACE)

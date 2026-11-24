@@ -24,7 +24,7 @@ def ctx():
     pytest.skip(f'no OpenGL 3.3 context available: {errors}')
 
 
-@pytest.mark.parametrize('name', ['chunk', 'voxel_marker', 'water', 'clouds'])
+@pytest.mark.parametrize('name', ['chunk', 'voxel_marker', 'water', 'clouds', 'crack'])
 def test_shader_compiles(ctx, name):
     program = load_program(ctx, name)
     assert 'm_proj' in program and 'm_view' in program

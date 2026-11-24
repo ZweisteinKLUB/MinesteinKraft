@@ -94,5 +94,11 @@ WATER_AREA = 5 * CHUNK_SIZE * WORLD_W
 CLOUD_SCALE = 25
 CLOUD_HEIGHT = WORLD_H * CHUNK_SIZE * 2
 
+# block breaking: seconds to break each block type while holding the left button
+BREAK_TIME = {SAND: 0.5, GRASS: 0.6, DIRT: 0.6, STONE: 1.5, SNOW: 0.35, LEAVES: 0.3, WOOD: 1.0}
+DEFAULT_BREAK_TIME = 1.0
+CRACK_STAGES = 10
+CRACK_TEXTURE_SIZE = 16
+
 # FPS Limit
 FPS = 60

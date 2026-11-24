@@ -96,6 +96,8 @@ class VoxelEngine:
     # ------------------------------------------------------------------ mouse
     def set_mouse_capture(self, captured):
         self.mouse_captured = captured
+        if not captured and hasattr(self, 'scene'):
+            self.scene.world.voxel_handler.breaking = False
         pg.mouse.set_relative_mode(captured)  # hides the cursor and grabs the mouse
         pg.mouse.get_rel()  # discard motion accumulated while released
 

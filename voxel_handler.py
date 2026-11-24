@@ -1,5 +1,6 @@
 from settings import *
 from meshes.chunk_mesh_builder import get_chunk_index
+from block_breaking import BlockBreaker
 
 
 class VoxelHandler:
@@ -17,6 +18,10 @@ class VoxelHandler:
         
         self.interaction_mode = 0 # 0: remove voxel   1: add voxel
         self.new_voxel_id = 1
+
+        # progressive breaking while the left button is held
+        self.breaker = BlockBreaker()
+        self.breaking = False
         
     def add_voxel(self):
         if self.voxel_id:
@@ -73,6 +78,10 @@ class VoxelHandler:
     
     def update(self):
         self.ray_cast()
+        target = self.voxel_world_pos if self.voxel_id else None
+        holding = self.breaking and not self.interaction_mode
+        if self.breaker.update(target, self.voxel_id, holding, self.app.delta_time * 0.001):
+            self.remove_voxel()
     
     def ray_cast(self):
         # start point

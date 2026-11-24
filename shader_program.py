@@ -12,6 +12,8 @@ class ShaderProgram:
         self.voxel_marker = self.get_program(shader_name='voxel_marker')
         self.water = self.get_program('water')
         self.clouds = self.get_program('clouds')
+        self.crack = self.get_program('crack')
+        self.programs = (self.chunk, self.voxel_marker, self.water, self.clouds, self.crack)
         #-------------------------- #
         self.set_uniforms_on_init()
 
@@ -26,7 +28,7 @@ class ShaderProgram:
             program[name].value = value
 
     def set_projection(self, m_proj):
-        for program in (self.chunk, self.voxel_marker, self.water, self.clouds):
+        for program in self.programs:
             self.set_uniform(program, 'm_proj', m_proj)
 
     def set_uniforms_on_init(self):
@@ -53,8 +55,11 @@ class ShaderProgram:
         su(self.clouds, 'bg_color', BG_COLOR)
         su(self.clouds, 'cloud_scale', CLOUD_SCALE)
 
+        # cracks
+        su(self.crack, 'u_cracks', 3)
+
     def update(self):
-        for program in (self.chunk, self.voxel_marker, self.water, self.clouds):
+        for program in self.programs:
             self.set_uniform(program, 'm_view', self.player.m_view)
 
     def get_program(self, shader_name):
