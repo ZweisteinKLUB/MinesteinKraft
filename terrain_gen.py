@@ -1,108 +1,119 @@
+"""Terrain generation, vectorized per chunk with NumPy.
+
+Voxel arrays are flat, indexed as ``x + CHUNK_SIZE * z + CHUNK_AREA * y``,
+which is a C-ordered array of shape (y, z, x).
+"""
 from noise import noise2, noise3
-from random import random
 from settings import *
 
 
-@njit
 def get_height(x, z):
+    """Terrain height (int array) for world columns x, z (arrays or scalars)."""
+    x = np.asarray(x, dtype=np.float64)
+    z = np.asarray(z, dtype=np.float64)
+
     # island mask
-    island = 1 / (pow(0.0025 * math.hypot(x - CENTER_XZ, z - CENTER_XZ), 20) + 0.0001)
-    island = min(island, 1)
-    
+    island = 1 / ((0.0025 * np.hypot(x - CENTER_XZ, z - CENTER_XZ)) ** 20 + 0.0001)
+    island = np.minimum(island, 1)
+
     # amplitude
-    a1 = CENTER_Y
+    a1 = float(CENTER_Y)
     a2, a4, a8 = a1 * 0.5, a1 * 0.25, a1 * 0.125
-    
+    a1 = np.where(noise2(0.1 * x, 0.1 * z) < 0, a1 / 1.07, a1)
+
     # frequency
     f1 = 0.005
     f2, f4, f8 = f1 * 2, f1 * 4, f1 * 8
-    
-    if noise2(0.1 * x, 0.1 * z) < 0:
-        a1 /= 1.07
-    
-    height = 0
-    height += noise2(x * f1, z * f1) * a1 + a1
-    height += noise2(x * f2, z * f2) * a2 - a2
-    height += noise2(x * f4, z * f4) * a4 + a4
-    height += noise2(x * f8, z * f8) * a8 + a8
-    
-    height = max(height, 1)
-    height *= island
-    
-    return int(height)
+
+    height = noise2(x * f1, z * f1) * a1 + a1
+    height = height + noise2(x * f2, z * f2) * a2 - a2
+    height = height + noise2(x * f4, z * f4) * a4 + a4
+    height = height + noise2(x * f8, z * f8) * a8 + a8
+
+    height = np.maximum(height, 1) * island
+    return height.astype(np.int64)
 
 
-@njit
 def get_index(x, y, z):
     return x + CHUNK_SIZE * z + CHUNK_AREA * y
 
 
-@njit
-def set_voxel_id(voxels, x, y, z, wx, wy, wz, world_height):
-    voxel_id = 0
-    
-    if wy < world_height - 1:
-        # create caves
-        if (noise3(wx * 0.09, wy * 0.09, wz * 0.09) > 0 and
-                noise2(wx * 0.1, wz * 0.1) * 3 + 3 < wy < world_height - 10):
-            voxel_id = 0
-            
-        else:
-            voxel_id = STONE
-    else:
-        rng = int(7 * random())
-        ry = wy - rng
-        if SNOW_LVL <= ry < world_height:
-            voxel_id = SNOW
-            
-        elif STONE_LVL <= ry < SNOW_LVL:
-            voxel_id = STONE
-            
-        elif DIRT_LVL <= ry < STONE_LVL:
-            voxel_id = DIRT
-            
-        elif GRASS_LVL <= ry < DIRT_LVL:
-            voxel_id = GRASS
-            
-        else:
-            voxel_id = SAND
-    
-    # setting ID
-    voxels[get_index(x, y , z)] = voxel_id
-    
-    # place tree
-    if wy < DIRT_LVL:
-        place_tree(voxels, x, y, z, voxel_id)
-        
-@njit
-def place_tree(voxels, x, y, z, voxel_id):
-    rnd = random()
-    if voxel_id != GRASS or rnd > TREE_PROBABILITY:
-        return None
+def chunk_rng(cx, cy, cz):
+    """Deterministic random generator for a chunk (world voxel origin cx, cy, cz)."""
+    return np.random.default_rng([SEED & 0xFFFFFFFF, cx & 0xFFFFFFFF, cy & 0xFFFFFFFF, cz & 0xFFFFFFFF])
+
+
+def generate_terrain(voxels, cx, cy, cz):
+    """Fill the flat ``voxels`` array of the chunk whose world origin is (cx, cy, cz)."""
+    rng = chunk_rng(cx, cy, cz)
+    r = np.arange(CHUNK_SIZE)
+
+    # world coordinates, broadcastable to (y, z, x)
+    wx = (cx + r)[None, None, :]
+    wz = (cz + r)[None, :, None]
+    wy = (cy + r)[:, None, None]
+
+    height = get_height(wx[0], wz[0])[None]  # (1, z, x)
+
+    grid = np.zeros((CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE), dtype=np.uint8)
+
+    # underground: stone, minus caves
+    below_top = wy < height - 1
+    cave_floor = noise2(wx[0] * 0.1, wz[0] * 0.1)[None] * 3 + 3
+    cave_zone = below_top & (cave_floor < wy) & (wy < height - 10)
+    cave = np.zeros_like(cave_zone)
+    if cave_zone.any():
+        ys, zs, xs = np.nonzero(cave_zone)
+        cave[ys, zs, xs] = noise3((cx + xs) * 0.09, (cy + ys) * 0.09, (cz + zs) * 0.09) > 0
+    grid[below_top & ~cave] = STONE
+
+    # surface layer: material depends on a jittered altitude
+    top = wy == height - 1
+    ys, zs, xs = np.nonzero(top)
+    ry = (cy + ys) - rng.integers(0, 7, size=ys.size)
+    surface = np.select(
+        [ry >= SNOW_LVL, ry >= STONE_LVL, ry >= DIRT_LVL, ry >= GRASS_LVL],
+        [SNOW, STONE, DIRT, GRASS],
+        default=SAND,
+    ).astype(np.uint8)
+    grid[ys, zs, xs] = surface
+
+    # trees on low grass
+    is_candidate = (surface == GRASS) & ((cy + ys) < DIRT_LVL)
+    is_candidate &= rng.random(ys.size) <= TREE_PROBABILITY
+    for x, y, z in zip(xs[is_candidate], ys[is_candidate], zs[is_candidate]):
+        place_tree(grid, int(x), int(y), int(z), rng)
+
+    voxels[:] = grid.ravel()
+
+
+def place_tree(grid, x, y, z, rng):
+    """Place a tree whose trunk base is at local (x, y, z); grid is indexed (y, z, x)."""
     if y + TREE_HEIGHT >= CHUNK_SIZE:
-        return None
+        return
     if x - TREE_H_WIDTH < 0 or x + TREE_H_WIDTH >= CHUNK_SIZE:
-        return None
+        return
     if z - TREE_H_WIDTH < 0 or z + TREE_H_WIDTH >= CHUNK_SIZE:
-        return None
-    
+        return
+
     # dirt under the tree
-    voxels[get_index(x, y, z)] = DIRT
-    
-    # leaves
+    grid[y, z, x] = DIRT
+
+    # leaves (only in empty space, so they never carve the terrain)
     m = 0
     for n, iy in enumerate(range(TREE_H_HEIGHT, TREE_HEIGHT - 1)):
         k = iy % 2
-        rng = int(random() * 2)
-        for ix in range(-TREE_H_WIDTH + m, TREE_H_WIDTH - m * rng):
-            for iz in range(-TREE_H_WIDTH + m * rng, TREE_H_WIDTH - m):
+        jitter = int(rng.integers(0, 2))
+        for ix in range(-TREE_H_WIDTH + m, TREE_H_WIDTH - m * jitter):
+            for iz in range(-TREE_H_WIDTH + m * jitter, TREE_H_WIDTH - m):
                 if (ix + iz) % 4:
-                    voxels[get_index(x + ix + k, y + iy, z + iz + k)] = LEAVES
-        m += 1 if n > 0 else 3 if n > 1 else 0
-    
+                    ly, lz, lx = y + iy, z + iz + k, x + ix + k
+                    if grid[ly, lz, lx] == 0:
+                        grid[ly, lz, lx] = LEAVES
+        m += 1 if n > 0 else 0
+
     # tree trunk
-    for iy in range(1, TREE_HEIGHT - 2):
-        voxels[get_index(x, y + iy, z)] = WOOD
-        
+    grid[y + 1:y + TREE_HEIGHT - 2, z, x] = WOOD
+
     # top
-    voxels[get_index(x, y + TREE_HEIGHT - 2, z)] = LEAVES
+    grid[y + TREE_HEIGHT - 2, z, x] = LEAVES

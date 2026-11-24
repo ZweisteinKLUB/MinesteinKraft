@@ -1,209 +1,125 @@
+"""Chunk mesh construction, vectorized with NumPy.
+
+Each visible face produces 6 vertices (2 triangles), each vertex packed in one
+uint32: x: 6bit  y: 6bit  z: 6bit  voxel_id: 8bit  face_id: 3bit  ao_id: 2bit  flip_id: 1bit.
+The order of the 6 vertices inside a face matters: chunk.vert derives the UVs
+from gl_VertexID % 6.
+"""
 from settings import *
-from numba import uint8
+
+# Voxel grids are C-ordered (y, z, x): index = x + CHUNK_SIZE * z + CHUNK_AREA * y.
+# Offsets below are written (dx, dy, dz).
+
+# AO neighbour offsets (a..h) in the plane of a face, relative to the neighbour voxel
+_AO_PLANES = {
+    'Y': [(0, 0, -1), (-1, 0, -1), (-1, 0, 0), (-1, 0, 1), (0, 0, 1), (1, 0, 1), (1, 0, 0), (1, 0, -1)],
+    'X': [(0, 0, -1), (0, -1, -1), (0, -1, 0), (0, -1, 1), (0, 0, 1), (0, 1, 1), (0, 1, 0), (0, 1, -1)],
+    'Z': [(-1, 0, 0), (-1, -1, 0), (0, -1, 0), (1, -1, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0), (-1, 1, 0)],
+}
+
+# face_id, neighbour offset, AO plane, corners v0..v3, vertex order (no flip), vertex order (flip)
+_FACES = [
+    (0, (0, 1, 0), 'Y', [(0, 1, 0), (1, 1, 0), (1, 1, 1), (0, 1, 1)], (0, 3, 2, 0, 2, 1), (1, 0, 3, 1, 3, 2)),  # top
+    (1, (0, -1, 0), 'Y', [(0, 0, 0), (1, 0, 0), (1, 0, 1), (0, 0, 1)], (0, 2, 3, 0, 1, 2), (1, 3, 0, 1, 2, 3)),  # bottom
+    (2, (1, 0, 0), 'X', [(1, 0, 0), (1, 1, 0), (1, 1, 1), (1, 0, 1)], (0, 1, 2, 0, 2, 3), (3, 0, 1, 3, 1, 2)),  # right
+    (3, (-1, 0, 0), 'X', [(0, 0, 0), (0, 1, 0), (0, 1, 1), (0, 0, 1)], (0, 2, 1, 0, 3, 2), (3, 1, 0, 3, 2, 1)),  # left
+    (4, (0, 0, -1), 'Z', [(0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0)], (0, 1, 2, 0, 2, 3), (3, 0, 1, 3, 1, 2)),  # back
+    (5, (0, 0, 1), 'Z', [(0, 0, 1), (0, 1, 1), (1, 1, 1), (1, 0, 1)], (0, 2, 1, 0, 3, 2), (3, 1, 0, 3, 2, 1)),  # front
+]
 
 
-@njit
-def get_ao(local_pos, world_pos, world_voxels, plane):
-    x, y, z = local_pos
-    wx, wy, wz = world_pos
-    
-    if plane == 'Y':
-        a = is_void((x    , y, z - 1), (wx    , wy, wz - 1), world_voxels)
-        b = is_void((x - 1, y, z - 1), (wx - 1, wy, wz - 1), world_voxels)
-        c = is_void((x - 1, y, z    ), (wx - 1, wy, wz    ), world_voxels)
-        d = is_void((x - 1, y, z + 1), (wx - 1, wy, wz + 1), world_voxels)
-        e = is_void((x    , y, z + 1), (wx    , wy, wz + 1), world_voxels)
-        f = is_void((x + 1, y, z + 1), (wx + 1, wy, wz + 1), world_voxels)
-        g = is_void((x + 1, y, z    ), (wx + 1, wy, wz    ), world_voxels)
-        h = is_void((x + 1, y, z - 1), (wx + 1, wy, wz - 1), world_voxels)
-        
-    elif plane == 'X':
-        a = is_void((x, y    , z - 1), (wx, wy    , wz - 1), world_voxels)
-        b = is_void((x, y - 1, z - 1), (wx, wy - 1, wz - 1), world_voxels)
-        c = is_void((x, y - 1, z    ), (wx, wy - 1, wz    ), world_voxels)
-        d = is_void((x, y - 1, z + 1), (wx, wy - 1, wz + 1), world_voxels)
-        e = is_void((x, y    , z + 1), (wx, wy    , wz + 1), world_voxels)
-        f = is_void((x, y + 1, z + 1), (wx, wy + 1, wz + 1), world_voxels)
-        g = is_void((x, y + 1, z    ), (wx, wy + 1, wz    ), world_voxels)
-        h = is_void((x, y + 1, z - 1), (wx, wy + 1, wz - 1), world_voxels)
-        
-    else: # Z plane
-        a = is_void((x - 1, y    , z), (wx - 1, wy    , wz), world_voxels)
-        b = is_void((x - 1, y - 1, z), (wx - 1, wy - 1, wz), world_voxels)
-        c = is_void((x    , y - 1, z), (wx    , wy - 1, wz), world_voxels)
-        d = is_void((x + 1, y - 1, z), (wx + 1, wy - 1, wz), world_voxels)
-        e = is_void((x + 1, y    , z), (wx + 1, wy    , wz), world_voxels)
-        f = is_void((x + 1, y + 1, z), (wx + 1, wy + 1, wz), world_voxels)
-        g = is_void((x    , y + 1, z), (wx    , wy + 1, wz), world_voxels)
-        h = is_void((x - 1, y + 1, z), (wx - 1, wy + 1, wz), world_voxels)
-
-    ao = (a + b + c), (g + h + a), (e + f + g), (c + d + e)
-    return ao
-        
-
-@njit
-def pack_data(x, y , z, voxel_id, face_id, ao_id, flip_id):
-    # x: 6bit  y: 6bit   z: 6bit  voxel_id: 8bit  face_id: 3bit  ao_id: 2bit  flip_id: 1bit
-    a, b, c, d, e, f, g = x, y, z, voxel_id, face_id, ao_id, flip_id
-    
-    b_bit, c_bit, d_bit, e_bit, f_bit, g_bit = 6, 6, 8, 3, 2, 1
-    fg_bit = f_bit + g_bit
-    efg_bit = e_bit + fg_bit
-    defg_bit = d_bit + efg_bit
-    cdefg_bit = c_bit + defg_bit
-    bcdefg_bit = b_bit + cdefg_bit
-    
-    packed_data = (
-        a << bcdefg_bit |
-        b << cdefg_bit |
-        c << defg_bit |
-        d << efg_bit |
-        e << fg_bit |
-        f << g_bit | g
+def pack_data(x, y, z, voxel_id, face_id, ao_id, flip_id):
+    """Pack vertex attributes (scalars or arrays) into uint32."""
+    u = np.uint32
+    return (
+        (np.asarray(x, dtype=u) << u(26)) |
+        (np.asarray(y, dtype=u) << u(20)) |
+        (np.asarray(z, dtype=u) << u(14)) |
+        (np.asarray(voxel_id, dtype=u) << u(6)) |
+        (np.asarray(face_id, dtype=u) << u(3)) |
+        (np.asarray(ao_id, dtype=u) << u(1)) |
+        np.asarray(flip_id, dtype=u)
     )
-    return packed_data
 
 
-@njit
 def get_chunk_index(world_voxel_pos):
-    wx, wy, wz = world_voxel_pos
-    cx = wx // CHUNK_SIZE
-    cy = wy // CHUNK_SIZE
-    cz = wz // CHUNK_SIZE
-    if not (0 <= cx < WORLD_W and 0 <= cy < WORLD_H and 0 < cz < WORLD_D):
+    """Index of the chunk containing a world voxel position, or -1 outside the world."""
+    wx, wy, wz = (int(v) for v in world_voxel_pos)
+    cx, cy, cz = wx // CHUNK_SIZE, wy // CHUNK_SIZE, wz // CHUNK_SIZE
+    if not (0 <= cx < WORLD_W and 0 <= cy < WORLD_H and 0 <= cz < WORLD_D):
         return -1
-    
-    index = cx + WORLD_W * cz + WORLD_AREA * cy
-    return index
+    return cx + WORLD_W * cz + WORLD_AREA * cy
 
-@njit
-def is_void(local_voxel_pos, world_voxel_pos, world_voxels):
-    chunk_index = get_chunk_index(world_voxel_pos)
-    if chunk_index == -1:
-        return False
-    chunk_voxels = world_voxels[chunk_index]
-    
-    x, y, z = local_voxel_pos
-    voxel_index = x % CHUNK_SIZE + z % CHUNK_SIZE * CHUNK_SIZE + y % CHUNK_SIZE * CHUNK_AREA
-    
-    if chunk_voxels[voxel_index]:
-        return False
-    return True
 
-@njit
-def add_data(vertex_data, index, *vertices):
-    for vertex in vertices:
-        vertex_data[index] = vertex
-        index += 1
-    return index
+def get_padded_voxels(chunk_voxels, chunk_pos, world_voxels):
+    """(y, z, x) grid of the chunk with a 1-voxel border taken from neighbour chunks.
 
-@njit
-def build_chunk_mesh(chunk_voxels, format_size, chunk_pos, world_voxels):
-    vertex_data = np.empty(CHUNK_VOL * 18 * format_size , dtype='uint32')
-    index = 0
-    
-    for x in range(CHUNK_SIZE):
-        for y in range(CHUNK_SIZE):
-            for z in range(CHUNK_SIZE):
-                voxel_id = chunk_voxels[x + CHUNK_SIZE * z + CHUNK_AREA * y]
-                if not voxel_id:
+    Outside the world the border is solid, so no face is generated at the world edges.
+    """
+    s = CHUNK_SIZE
+    padded = np.ones((s + 2, s + 2, s + 2), dtype=np.uint8)
+    cx, cy, cz = (int(c) for c in chunk_pos)
+
+    # per axis offset -> (source slice in neighbour, destination slice in padded)
+    spans = {-1: (slice(s - 1, s), slice(0, 1)), 0: (slice(0, s), slice(1, s + 1)), 1: (slice(0, 1), slice(s + 1, s + 2))}
+
+    for oy in (-1, 0, 1):
+        ny = cy + oy
+        if not 0 <= ny < WORLD_H:
+            continue
+        for oz in (-1, 0, 1):
+            nz = cz + oz
+            if not 0 <= nz < WORLD_D:
+                continue
+            for ox in (-1, 0, 1):
+                nx = cx + ox
+                if not 0 <= nx < WORLD_W:
                     continue
-                
-                # voxel world position
-                cx, cy, cz = chunk_pos
-                wx = x + cx * CHUNK_SIZE
-                wy = y + cy * CHUNK_SIZE
-                wz = z + cz * CHUNK_SIZE
-                
-                # top face
-                if is_void((x, y + 1, z), (wx, wy + 1, wz), world_voxels):
-                    #get ao values
-                    ao = get_ao((x, y + 1, z), (wx, wy + 1, wz), world_voxels, plane='Y')
-                    flip_id = ao[1] + ao[3] > ao[0] + ao[2]
-                    # format: x, y, z, voxel_id, face_id
-                    v0 = pack_data(x    , y + 1, z    , voxel_id, 0, ao[0], flip_id)
-                    v1 = pack_data(x + 1, y + 1, z    , voxel_id, 0, ao[1], flip_id)
-                    v2 = pack_data(x + 1, y + 1, z + 1, voxel_id, 0, ao[2], flip_id)
-                    v3 = pack_data(x    , y + 1, z + 1, voxel_id, 0, ao[3], flip_id)
-                    
-                    if flip_id:
-                        index = add_data(vertex_data, index, v1, v0, v3, v1, v3, v2)
-                    else:
-                        index = add_data(vertex_data, index, v0, v3, v2, v0, v2, v1)
-                    
-                # bottom face
-                if is_void((x, y - 1, z), (wx, wy - 1, wz), world_voxels):
-                    ao = get_ao((x, y - 1, z), (wx, wy - 1, wz), world_voxels, plane='Y')
-                    flip_id = ao[1] + ao[3] > ao[0] + ao[2]
-                    
-                    v0 = pack_data(x    , y , z    , voxel_id, 1, ao[0], flip_id)
-                    v1 = pack_data(x + 1, y , z    , voxel_id, 1, ao[1], flip_id)
-                    v2 = pack_data(x + 1, y , z + 1, voxel_id, 1, ao[2], flip_id)
-                    v3 = pack_data(x    , y , z + 1, voxel_id, 1, ao[3], flip_id)
-                    
-                    if flip_id:
-                        index = add_data(vertex_data, index, v1, v3, v0, v1, v2, v3)
-                    else:
-                        index = add_data(vertex_data, index, v0, v2, v3, v0, v1, v2)
-                
-                # right face
-                if is_void((x + 1, y , z), (wx + 1, wy, wz), world_voxels):
-                    ao = get_ao((x + 1, y , z), (wx + 1, wy, wz), world_voxels, plane='X')
-                    flip_id = ao[1] + ao[3] > ao[0] + ao[2]
-                    
-                    v0 = pack_data(x + 1, y    , z    , voxel_id, 2, ao[0], flip_id)
-                    v1 = pack_data(x + 1, y + 1, z    , voxel_id, 2, ao[1], flip_id)
-                    v2 = pack_data(x + 1, y + 1, z + 1, voxel_id, 2, ao[2], flip_id)
-                    v3 = pack_data(x + 1, y    , z + 1, voxel_id, 2, ao[3], flip_id)
-                    
-                    if flip_id:
-                        index = add_data(vertex_data, index, v3, v0, v1, v3, v1, v2)
-                    else:
-                        index = add_data(vertex_data, index, v0, v1, v2, v0, v2, v3)
-                
-                # left face
-                if is_void((x - 1, y , z), (wx - 1, wy , wz), world_voxels):
-                    ao = get_ao((x - 1, y , z), (wx - 1, wy , wz), world_voxels, plane='X')
-                    flip_id = ao[1] + ao[3] > ao[0] + ao[2]
-                    
-                    v0 = pack_data(x, y    , z    , voxel_id, 3, ao[0], flip_id)
-                    v1 = pack_data(x, y + 1, z    , voxel_id, 3, ao[1], flip_id)
-                    v2 = pack_data(x, y + 1, z + 1, voxel_id, 3, ao[2], flip_id)
-                    v3 = pack_data(x, y    , z + 1, voxel_id, 3, ao[3], flip_id)
-                    
-                    if flip_id:
-                        index = add_data(vertex_data, index, v3, v1, v0, v3, v2, v1)
-                    else:
-                        index = add_data(vertex_data, index, v0, v2, v1, v0, v3, v2)
-                    
-                # back face
-                if is_void((x, y , z - 1), (wx, wy, wz - 1), world_voxels):
-                    ao = get_ao((x, y , z - 1), (wx, wy, wz - 1), world_voxels, plane='Z')
-                    flip_id = ao[1] + ao[3] > ao[0] + ao[2]
+                if ox == oy == oz == 0:
+                    source = chunk_voxels
+                else:
+                    source = world_voxels[nx + WORLD_W * nz + WORLD_AREA * ny]
+                source = source.reshape(s, s, s)
+                (sy, dy), (sz, dz), (sx, dx) = spans[oy], spans[oz], spans[ox]
+                padded[dy, dz, dx] = source[sy, sz, sx]
+    return padded
 
-                    v0 = pack_data(x    , y    , z, voxel_id, 4, ao[0], flip_id)
-                    v1 = pack_data(x    , y + 1, z, voxel_id, 4, ao[1], flip_id)
-                    v2 = pack_data(x + 1, y + 1, z, voxel_id, 4, ao[2], flip_id)
-                    v3 = pack_data(x + 1, y    , z, voxel_id, 4, ao[3], flip_id)
-                    
-                    if flip_id:
-                        index = add_data(vertex_data, index, v3, v0, v1, v3, v1, v2)
-                    else:
-                        index = add_data(vertex_data, index, v0, v1, v2, v0, v2, v3)
-                
-                # front face
-                if is_void((x, y , z + 1), (wx, wy, wz + 1), world_voxels):
-                    ao = get_ao((x, y , z + 1), (wx, wy, wz + 1), world_voxels, plane='Z')
-                    flip_id = ao[1] + ao[3] > ao[0] + ao[2]
-                    
-                    v0 = pack_data(x    , y    , z + 1, voxel_id, 5, ao[0], flip_id)
-                    v1 = pack_data(x    , y + 1, z + 1, voxel_id, 5, ao[1], flip_id)
-                    v2 = pack_data(x + 1, y + 1, z + 1, voxel_id, 5, ao[2], flip_id)
-                    v3 = pack_data(x + 1, y    , z + 1, voxel_id, 5, ao[3], flip_id)
-                    
-                    if flip_id:
-                        index = add_data(vertex_data, index, v3, v1, v0, v3, v2, v1)
-                    else:
-                        index = add_data(vertex_data, index, v0, v2, v1, v0, v3, v2 )
-    
-    return vertex_data[:index + 1]
+
+def build_chunk_mesh(chunk_voxels, format_size, chunk_pos, world_voxels):
+    s = CHUNK_SIZE
+    padded = get_padded_voxels(chunk_voxels, chunk_pos, world_voxels)
+    void = padded == 0
+
+    def shifted(grid, dx, dy, dz):
+        """View of ``grid`` aligned on the chunk voxels, shifted by (dx, dy, dz)."""
+        return grid[1 + dy:1 + dy + s, 1 + dz:1 + dz + s, 1 + dx:1 + dx + s]
+
+    solid = shifted(padded, 0, 0, 0)
+    parts = []
+
+    for face_id, (nx, ny, nz), plane, corners, order, order_flip in _FACES:
+        visible = (solid != 0) & shifted(void, nx, ny, nz)
+        ys, zs, xs = np.nonzero(visible)
+        if ys.size == 0:
+            continue
+
+        # ambient occlusion: count void cells around the neighbour voxel in the face plane
+        a, b, c, d, e, f, g, h = (
+            shifted(void, nx + ox, ny + oy, nz + oz)[ys, zs, xs].astype(np.uint8)
+            for ox, oy, oz in _AO_PLANES[plane]
+        )
+        ao = (a + b + c, g + h + a, e + f + g, c + d + e)
+        flip = (ao[1] + ao[3]) > (ao[0] + ao[2])
+
+        voxel_id = solid[ys, zs, xs]
+        verts = np.stack([
+            pack_data(xs + vx, ys + vy, zs + vz, voxel_id, face_id, ao[k], flip)
+            for k, (vx, vy, vz) in enumerate(corners)
+        ], axis=1)  # (n_faces, 4)
+
+        tris = np.where(flip[:, None], verts[:, list(order_flip)], verts[:, list(order)])
+        parts.append(tris.ravel())
+
+    if not parts:
+        return np.empty(0, dtype=np.uint32)
+    return np.concatenate(parts).astype(np.uint32, copy=False)

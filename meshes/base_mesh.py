@@ -11,18 +11,21 @@ class BaseMesh:
         self.vbo_format = None
         # attribute names according to the format: ("in_position", "in_color")
         self.attrs: tuple[str, ...] = None
-        # vertex array object
+        # vertex array object (None when the mesh has no vertices)
         self.vao = None
 
-    def get_vertex_data(self) -> np.array: ...
-    
+    def get_vertex_data(self) -> np.ndarray: ...
+
     def get_vao(self):
         vertex_data = self.get_vertex_data()
+        if vertex_data.size == 0:  # OpenGL buffers cannot be empty
+            return None
         vbo = self.ctx.buffer(vertex_data)
         vao = self.ctx.vertex_array(
             self.program, [(vbo, self.vbo_format, *self.attrs)], skip_errors=True
         )
         return vao
-    
+
     def render(self):
-        self.vao.render()
+        if self.vao is not None:
+            self.vao.render()
