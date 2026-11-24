@@ -1,7 +1,7 @@
 # MinesteinKraft
 
-Voxel game engine in Python: procedural island terrain with caves, trees, water and clouds,
-ambient occlusion, and block breaking / placing.
+Voxel game engine in Python: an endless, saved archipelago with caves, trees, water and clouds,
+ambient occlusion, gravity and swimming, and block breaking / placing.
 
 Built with [pygame-ce](https://pyga.me/), [moderngl](https://github.com/moderngl/moderngl)
 (OpenGL 3.3 core), [PyGLM](https://github.com/Zuzu-Typ/PyGLM) and [NumPy](https://numpy.org/).
@@ -29,6 +29,33 @@ python main.py
 ```
 
 The game can be started from any directory (`python path/to/main.py`).
+
+## Worlds and saves
+
+- **Start menu**: choose an existing world (most recently played first) or create a new one.
+  - A new world takes a name and an optional seed: empty means random, a number is used as is,
+    and any text gives a stable seed.
+  - Each world is generated from its own seed.
+- **First launch of a world**: the starting island is generated and saved.
+  - The world then **grows on its own** as you explore: chunks around the player are loaded from
+    the save or generated on the fly.
+  - Beyond the starting island lies an archipelago of islands of every size.
+  - The terrain is computed from the seed and the coordinates, so new areas always match the
+    existing ones exactly.
+- **Saving is automatic**: every 5 seconds and when you quit.
+  - Everything is saved: generated chunks, your changes, and the player's position.
+  - Reopening a world brings everything back.
+- **Where saves live**: one SQLite file per world, in
+  - Windows: `%APPDATA%\MinesteinKraft\worlds\`
+  - macOS: `~/Library/Application Support/MinesteinKraft/worlds/`
+  - Linux: `~/.local/share/minesteinkraft/worlds/` (or `$XDG_DATA_HOME`)
+
+  Another folder can be used with `python main.py --world-dir PATH` or the environment variable
+  `MINESTEINKRAFT_DATA_DIR`.
+- **Deleting a world**: delete its `.db` file and the `-wal` / `-shm` files next to it.
+  The game itself never deletes a world.
+- **Size**: about 0.5 KB per chunk on average. Exploring 1 km adds roughly 1.5 MB.
+- **Unreadable files** are listed in red in the menu and are never modified.
 
 ## Controls
 
