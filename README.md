@@ -36,11 +36,13 @@ The game can be started from any directory (`python path/to/main.py`).
 |-------------------------|-------------------------------------------|
 | Move                    | `Z Q S D` (AZERTY), `W A S D` or arrows   |
 | Jump                    | `Space` (climbs one block)                |
+| Swim up / dive          | `Space` / `Left Shift` (in water)         |
 | Sprint                  | `Left Ctrl`                               |
 | Toggle fly mode         | `F`                                       |
 | Fly up / down           | `Space` / `Left Shift` (fly mode)         |
 | Look around             | Mouse                                     |
-| Break / place block     | Left click                                |
+| Break block             | Hold left click (cracks grow; harder blocks take longer) |
+| Place block             | Left click (place mode)                   |
 | Switch break / place    | Right click                               |
 | Release mouse           | `Esc`; click in the window to capture it again |
 | Quit                    | `Esc` while the mouse is released, or close the window |
@@ -48,6 +50,8 @@ The game can be started from any directory (`python path/to/main.py`).
 In walking mode the player is subject to gravity and collides with blocks.
 Obstacles lower than half a block are climbed automatically.
 Fly mode has no gravity but still collides with blocks.
+In the water the player floats and sinks slowly. Under water, the view turns blue and foggy.
+To climb out, swim up against the bank.
 The generated world is surrounded by invisible walls.
 
 ## Development
