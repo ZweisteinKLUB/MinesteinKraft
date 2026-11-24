@@ -3,11 +3,11 @@ import moderngl as mgl
 import pygame as pg
 import sys
 import argparse
-import random
 from pathlib import Path
 import noise
 import paths
-from storage import WorldStore, list_worlds
+from menu import MenuScreen
+from ui import UIOverlay
 from shader_program import ShaderProgram
 from scene import Scene
 from player import Player
@@ -36,8 +36,8 @@ def show_fatal_error(message):
 
 
 class VoxelEngine:
-    def __init__(self, store):
-        self.store = store
+    def __init__(self, store=None, worlds_dir=None):
+        """Open ``store`` directly, or show the world selection menu first."""
         pg.init()
         self.window_size = self.create_window()
         self.ctx = self.create_context()
@@ -51,6 +51,16 @@ class VoxelEngine:
 
         self.mouse_captured = False
         self.is_running = True
+        self.ui = UIOverlay(self.ctx)
+        self.screens = MenuScreen(self, worlds_dir or paths.worlds_dir())
+        if store is None:
+            store = self.screens.run()  # start menu: pick or create a world
+            if store is None:
+                self.is_running = False
+                self.store = None
+                return
+        self.store = store
+        self.screens.show_loading(f'Chargement de « {store.name} »…')
         self.on_init()
         self.set_mouse_capture(True)
 
@@ -97,6 +107,8 @@ class VoxelEngine:
             return
         self.window_size = (width, height)
         self.ctx.viewport = (0, 0, width, height)
+        if not hasattr(self, 'player'):  # still in the menu
+            return
         self.player.set_aspect_ratio(width / height)
         self.shader_program.set_projection(self.player.m_proj)
 
@@ -122,7 +134,8 @@ class VoxelEngine:
         world = self.scene.world
 
         if self.store.chunk_count() == 0:
-            world.generate_base_area()  # first launch of this world: build and save the island
+            # first launch of this world: build and save the island
+            world.generate_base_area(lambda f: self.screens.show_loading('Génération du monde…', f))
 
         saved = self.store.load_player()
         if saved:
@@ -179,20 +192,9 @@ class VoxelEngine:
             self.handle_events()
             self.update()
             self.render()
-        self.save_and_close()
+        if self.store is not None:
+            self.save_and_close()
         pg.quit()
-
-
-def new_world_seed():
-    return random.SystemRandom().getrandbits(48)
-
-
-def open_last_or_new_world(worlds_dir):
-    """Most recently played readable world, or a new one."""
-    for info in list_worlds(worlds_dir):
-        if not info.error:
-            return WorldStore.open(info.path)
-    return WorldStore.create(worlds_dir, 'Monde 1', new_world_seed(), GENERATOR_VERSION)
 
 
 def parse_args(argv=None):
@@ -204,9 +206,7 @@ def parse_args(argv=None):
 
 def main(argv=None):
     args = parse_args(argv)
-    worlds = paths.worlds_dir(args.world_dir)
-    store = open_last_or_new_world(worlds)
-    app = VoxelEngine(store)
+    app = VoxelEngine(worlds_dir=paths.worlds_dir(args.world_dir))
     app.run()
     sys.exit()
 
