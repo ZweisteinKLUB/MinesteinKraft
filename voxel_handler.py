@@ -1,12 +1,12 @@
 from settings import *
-from meshes.chunk_mesh_builder import get_chunk_index
+from meshes.chunk_mesh_builder import get_chunk_key
 from block_breaking import BlockBreaker
 
 
 class VoxelHandler:
     def __init__(self, world):
         self.app = world.app
-        self.chunks = world.chunks
+        self.world = world
         
         # ray casting result
         self.chunk = None
@@ -37,9 +37,9 @@ class VoxelHandler:
                 self.rebuild_adjacent_chunks(voxel_local_pos, new_pos)
 
     def rebuild_adj_chunk(self, adj_voxel_pos):
-        index = get_chunk_index(adj_voxel_pos)
-        if index != -1:
-            self.chunks[index].mesh.rebuild()
+        chunk = self.world.get_chunk(get_chunk_key(adj_voxel_pos))
+        if chunk is not None and chunk.mesh is not None:
+            chunk.mesh.rebuild()
     
     def rebuild_adjacent_chunks(self, voxel_local_pos, voxel_world_pos):
         lx, ly, lz = voxel_local_pos
@@ -142,15 +142,13 @@ class VoxelHandler:
         return False
     
     def get_voxel_id(self, voxel_world_pos):
-        """Return (voxel_id, voxel_index, voxel_local_pos, chunk); chunk is None outside the world."""
+        """Return (voxel_id, voxel_index, voxel_local_pos, chunk); chunk is None if not loaded."""
         wx, wy, wz = (int(v) for v in voxel_world_pos)
         # floor division, also correct for negative coordinates
         cx, cy, cz = wx // CHUNK_SIZE, wy // CHUNK_SIZE, wz // CHUNK_SIZE
 
-        if 0 <= cx < WORLD_W and 0 <= cy < WORLD_H and 0 <= cz < WORLD_D:
-            chunk_index = cx + WORLD_W * cz + WORLD_AREA * cy
-            chunk = self.chunks[chunk_index]
-
+        chunk = self.world.get_chunk((cx, cy, cz)) if 0 <= cy < WORLD_H else None
+        if chunk is not None:
             lx, ly, lz = wx - cx * CHUNK_SIZE, wy - cy * CHUNK_SIZE, wz - cz * CHUNK_SIZE
             voxel_index = lx + CHUNK_SIZE * lz + CHUNK_AREA * ly
             voxel_id = int(chunk.voxels[voxel_index])

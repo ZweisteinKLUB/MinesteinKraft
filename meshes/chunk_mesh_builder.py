@@ -42,19 +42,18 @@ def pack_data(x, y, z, voxel_id, face_id, ao_id, flip_id):
     )
 
 
-def get_chunk_index(world_voxel_pos):
-    """Index of the chunk containing a world voxel position, or -1 outside the world."""
+def get_chunk_key(world_voxel_pos):
+    """Key (cx, cy, cz) of the chunk containing a world voxel position (floor division)."""
     wx, wy, wz = (int(v) for v in world_voxel_pos)
-    cx, cy, cz = wx // CHUNK_SIZE, wy // CHUNK_SIZE, wz // CHUNK_SIZE
-    if not (0 <= cx < WORLD_W and 0 <= cy < WORLD_H and 0 <= cz < WORLD_D):
-        return -1
-    return cx + WORLD_W * cz + WORLD_AREA * cy
+    return wx // CHUNK_SIZE, wy // CHUNK_SIZE, wz // CHUNK_SIZE
 
 
-def get_padded_voxels(chunk_voxels, chunk_pos, world_voxels):
+def get_padded_voxels(chunk_voxels, chunk_pos, neighbour):
     """(y, z, x) grid of the chunk with a 1-voxel border taken from neighbour chunks.
 
-    Outside the world the border is solid, so no face is generated at the world edges.
+    ``neighbour((cx, cy, cz))`` returns the flat voxel array of a chunk, or None when
+    it is not available (outside the world height or not loaded yet): the border is
+    then solid, so no face is generated against it.
     """
     s = CHUNK_SIZE
     padded = np.ones((s + 2, s + 2, s + 2), dtype=np.uint8)
@@ -64,30 +63,23 @@ def get_padded_voxels(chunk_voxels, chunk_pos, world_voxels):
     spans = {-1: (slice(s - 1, s), slice(0, 1)), 0: (slice(0, s), slice(1, s + 1)), 1: (slice(0, 1), slice(s + 1, s + 2))}
 
     for oy in (-1, 0, 1):
-        ny = cy + oy
-        if not 0 <= ny < WORLD_H:
-            continue
         for oz in (-1, 0, 1):
-            nz = cz + oz
-            if not 0 <= nz < WORLD_D:
-                continue
             for ox in (-1, 0, 1):
-                nx = cx + ox
-                if not 0 <= nx < WORLD_W:
-                    continue
                 if ox == oy == oz == 0:
                     source = chunk_voxels
                 else:
-                    source = world_voxels[nx + WORLD_W * nz + WORLD_AREA * ny]
+                    source = neighbour((cx + ox, cy + oy, cz + oz))
+                    if source is None:
+                        continue
                 source = source.reshape(s, s, s)
                 (sy, dy), (sz, dz), (sx, dx) = spans[oy], spans[oz], spans[ox]
                 padded[dy, dz, dx] = source[sy, sz, sx]
     return padded
 
 
-def build_chunk_mesh(chunk_voxels, format_size, chunk_pos, world_voxels):
+def build_chunk_mesh(chunk_voxels, format_size, chunk_pos, neighbour):
     s = CHUNK_SIZE
-    padded = get_padded_voxels(chunk_voxels, chunk_pos, world_voxels)
+    padded = get_padded_voxels(chunk_voxels, chunk_pos, neighbour)
     void = padded == 0
 
     def shifted(grid, dx, dy, dz):

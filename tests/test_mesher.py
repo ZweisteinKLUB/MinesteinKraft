@@ -1,15 +1,27 @@
 import numpy as np
 import pytest
 from settings import *
-from meshes.chunk_mesh_builder import build_chunk_mesh, get_chunk_index, pack_data
+from meshes.chunk_mesh_builder import build_chunk_mesh, get_chunk_key, pack_data
+
+
+class FakeWorld(dict):
+    """{(cx, cy, cz): voxels} limited to the base area; missing chunks are None (solid)."""
+
+    def __getitem__(self, key):
+        return self.setdefault(key, np.zeros(CHUNK_VOL, dtype=np.uint8))
 
 
 def empty_world():
-    return np.zeros((WORLD_VOL, CHUNK_VOL), dtype=np.uint8)
+    w = FakeWorld()
+    for x in range(WORLD_W):
+        for y in range(WORLD_H):
+            for z in range(WORLD_D):
+                w[(x, y, z)]
+    return w
 
 
 def chunk_index(x, y, z):
-    return x + WORLD_W * z + WORLD_AREA * y
+    return (x, y, z)
 
 
 def voxel_index(x, y, z):
@@ -17,7 +29,7 @@ def voxel_index(x, y, z):
 
 
 def mesh_of(world, pos):
-    return build_chunk_mesh(world[chunk_index(*pos)], 1, pos, world)
+    return build_chunk_mesh(world[pos], 1, pos, world.get)
 
 
 def unpack(v):
@@ -91,8 +103,8 @@ def test_empty_chunk_gives_empty_mesh():
     assert len(mesh_of(empty_world(), (0, 0, 0))) == 0
 
 
-def test_get_chunk_index():
-    assert get_chunk_index((0, 0, 0)) == 0
-    assert get_chunk_index((CHUNK_SIZE, 0, CHUNK_SIZE)) == chunk_index(1, 0, 1)
-    assert get_chunk_index((-1, 0, 0)) == -1
-    assert get_chunk_index((0, 0, WORLD_D * CHUNK_SIZE)) == -1
+def test_get_chunk_key():
+    assert get_chunk_key((0, 0, 0)) == (0, 0, 0)
+    assert get_chunk_key((CHUNK_SIZE, 0, CHUNK_SIZE)) == (1, 0, 1)
+    assert get_chunk_key((-1, 0, 0)) == (-1, 0, 0)
+    assert get_chunk_key((-CHUNK_SIZE - 1, 5, 3)) == (-2, 0, 0)
