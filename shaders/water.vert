@@ -14,10 +14,10 @@ out vec2 uv;
 
 void main() {
     vec3 pos = in_position;
-    pos.xz *= water_area;
-    pos.xz -= 0.33 * water_area;
+    pos.xz *= float(water_area);
+    pos.xz -= 0.33 * float(water_area);
 
     pos.y += water_line;
-    uv = in_tex_coord * water_area;
+    uv = in_tex_coord * float(water_area);
     gl_Position = m_proj * m_view * vec4(pos, 1.0);
 }

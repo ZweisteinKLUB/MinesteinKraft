@@ -3,7 +3,7 @@
 layout (location = 0) out vec4 fragColor;
 
 const vec3 gamma = vec3(2.2);
-const vec3 inv_gamma = 1 / gamma;
+const vec3 inv_gamma = 1.0 / gamma;
 
 in vec2 uv;
 

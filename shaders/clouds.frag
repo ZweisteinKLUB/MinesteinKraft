@@ -2,7 +2,7 @@
 
 layout (location = 0) out vec4 fragColor;
 
-const vec3 cloud_color = vec3(1);
+const vec3 cloud_color = vec3(1.0);
 
 uniform vec3 bg_color;
 

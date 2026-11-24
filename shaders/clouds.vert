@@ -11,11 +11,11 @@ uniform float cloud_scale;
 
 void main() {
     vec3 pos = vec3(in_position);
-    pos.xz -= center;
+    pos.xz -= float(center);
     pos.xz *= cloud_scale;
-    pos.xz += center;
+    pos.xz += float(center);
 
-    float time = 300 * sin(0.01 * u_time);
+    float time = 300.0 * sin(0.01 * u_time);
     pos.xz += time;
     gl_Position = m_proj * m_view * vec4(pos, 1.0);
 //    gl_Position = m_view_proj * vec4(pos, 1.0);
