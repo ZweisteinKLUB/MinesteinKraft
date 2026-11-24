@@ -35,14 +35,20 @@ The game can be started from any directory (`python path/to/main.py`).
 | Action                  | Keys                                      |
 |-------------------------|-------------------------------------------|
 | Move                    | `Z Q S D` (AZERTY), `W A S D` or arrows   |
-| Up / down               | `Space` / `Left Shift`                    |
+| Jump                    | `Space` (climbs one block)                |
 | Sprint                  | `Left Ctrl`                               |
-| Toggle fly mode         | `F` (moving forward follows the view)     |
+| Toggle fly mode         | `F`                                       |
+| Fly up / down           | `Space` / `Left Shift` (fly mode)         |
 | Look around             | Mouse                                     |
 | Break / place block     | Left click                                |
 | Switch break / place    | Right click                               |
 | Release mouse           | `Esc`; click in the window to capture it again |
 | Quit                    | `Esc` while the mouse is released, or close the window |
+
+In walking mode the player is subject to gravity and collides with blocks.
+Obstacles lower than half a block are climbed automatically.
+Fly mode has no gravity but still collides with blocks.
+The generated world is surrounded by invisible walls.
 
 ## Development
 
