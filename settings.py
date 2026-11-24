@@ -1,5 +1,8 @@
 import numpy as np
-import glm
+try:
+    from pyglm import glm  # PyGLM >= 2.8
+except ImportError:
+    import glm
 import math
 
 # OpenGL settings
