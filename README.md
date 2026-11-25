@@ -21,6 +21,19 @@ The builds are not code-signed:
 
 Requirements: Python 3.10 or newer, and a GPU / driver with **OpenGL 3.3**.
 
+The launch scripts create a `.venv` environment and install the dependencies on the first run.
+After that they start the game immediately, reinstalling only when `requirements.txt` changes:
+
+| System        | Start the game                                    |
+|---------------|---------------------------------------------------|
+| Linux / macOS | `./run.sh`                                        |
+| macOS         | double-click `run.command` in the Finder          |
+| Windows       | double-click `run.bat`, or `run.bat` in a terminal |
+
+Options are passed to the game, e.g. `./run.sh --world-dir ~/my-worlds`.
+
+By hand:
+
 ```bash
 python -m venv .venv
 # Windows: .venv\Scripts\activate    macOS / Linux: source .venv/bin/activate
