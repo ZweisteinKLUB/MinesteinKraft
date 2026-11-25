@@ -124,7 +124,10 @@ class VoxelEngine:
         self.mouse_captured = captured
         if not captured and hasattr(self, 'scene'):
             self.scene.world.voxel_handler.breaking = False
-        pg.mouse.set_relative_mode(captured)  # hides the cursor and grabs the mouse
+        try:
+            pg.mouse.set_relative_mode(captured)  # hides the cursor and grabs the mouse
+        except pg.error as error:  # e.g. headless video drivers
+            print(f'warning: mouse capture unavailable ({error})', file=sys.stderr)
         pg.mouse.get_rel()  # discard motion accumulated while released
 
     # ------------------------------------------------------------------ game loop
