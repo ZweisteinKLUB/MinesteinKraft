@@ -2,7 +2,7 @@
 # MinesteinKraft launcher (Linux / macOS).
 # First run: creates .venv and installs the dependencies; later runs reinstall
 # them only when requirements.txt changes. Arguments are passed to the game,
-# e.g.  ./run.sh --world-dir ~/my-worlds
+# e.g.  ./run.sh --world-dir ~/my-worlds     (--setup-only: prepare, don't start)
 set -e
 cd "$(dirname "$0")"
 
@@ -36,6 +36,12 @@ if [ ! -f "$MARKER" ] || [ "$(cat "$MARKER")" != "$WANTED" ]; then
     "$PY" -m pip install --disable-pip-version-check -q --upgrade pip
     "$PY" -m pip install --disable-pip-version-check -q -r requirements.txt
     echo "$WANTED" > "$MARKER"
+fi
+
+# --setup-only: prepare the environment and stop (used by the VS Code debug configuration)
+if [ "${1:-}" = "--setup-only" ]; then
+    echo "Environment ready: $PY"
+    exit 0
 fi
 
 exec "$PY" main.py "$@"

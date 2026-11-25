@@ -154,3 +154,6 @@ cython_debug/
 
 # PyInstaller spec of the game is versioned
 !minesteinkraft.spec
+
+# worlds of the "mondes de test" debug configuration
+.debug-worlds/

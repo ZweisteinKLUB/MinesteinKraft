@@ -2,7 +2,7 @@
 rem MinesteinKraft launcher (Windows).
 rem First run: creates .venv and installs the dependencies; later runs reinstall
 rem them only when requirements.txt changes. Arguments are passed to the game,
-rem e.g.  run.bat --world-dir D:\my-worlds
+rem e.g.  run.bat --world-dir D:\my-worlds     (--setup-only: prepare, don't start)
 setlocal
 cd /d "%~dp0"
 set "VENV=.venv"
@@ -33,6 +33,11 @@ echo Installing dependencies...
 >"%MARKER%" echo %WANTED%
 
 :run
+rem --setup-only: prepare the environment and stop (used by the VS Code debug configuration)
+if "%~1"=="--setup-only" (
+    echo Environment ready: %PY%
+    exit /b 0
+)
 "%PY%" main.py %*
 exit /b %ERRORLEVEL%
 
