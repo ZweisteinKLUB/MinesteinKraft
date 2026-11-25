@@ -110,6 +110,46 @@ DESPAWN_DISTANCE = 64.0
 # colors
 BG_COLOR = glm.vec3(0.58, 0.83, 0.99)
 
+# day / night cycle (accelerated)
+DAY_LENGTH = 20 * 60.0      # real seconds per game day (24 game hours)
+START_HOUR = 8.0            # time of day when a new world starts
+LATITUDE = 35.0             # degrees: the sun culminates 55 degrees above the southern horizon
+LUNAR_CYCLE_DAYS = 8.0      # game days from new moon to new moon
+TIME_SKIP_HOURS = 1.0       # F7: jump forward in time
+
+# light (linear HDR units, before the exposure)
+SUN_ILLUMINANCE = 3.0
+MOON_ILLUMINANCE = 0.16
+DAY_EXPOSURE = 1.0
+NIGHT_EXPOSURE = 6.0        # the eye adapts to the dark: nights stay playable
+MIN_AMBIENT = 0.004         # cave ambient light (caves are dark, never fully black)
+
+# weather: random durations (game hours), transition time (real seconds)
+WEATHER_DURATION_HOURS = {
+    'clear': (4.0, 10.0), 'cloudy': (2.0, 6.0), 'fog': (1.5, 4.0),
+    'rain': (1.5, 4.0), 'storm': (1.0, 2.5), 'snow': (2.0, 5.0),
+}
+WEATHER_TRANSITION_S = 40.0
+WETNESS_RATES = (1 / 30.0, 1 / 180.0)       # ground gets wet / dries (per second at full rain / sun)
+SNOW_COVER_RATES = (1 / 90.0, 1 / 300.0)    # snow settles / melts
+LIGHTNING_INTERVAL = (2.0, 10.0)            # seconds between strikes in a full storm
+LIGHTNING_DISTANCE = (60.0, 500.0)          # blocks from the player
+CLOUD_ALTITUDE = 420.0                      # blocks above the sea
+CLOUD_SPEED = 6.0                           # blocks/s at full wind
+WAVE_HEIGHT = (0.06, 0.55)                  # wave amplitude (blocks): calm, storm
+
+# graphics: shadows, water reflections, post-processing ('--graphics low|medium|high')
+GRAPHICS_PRESETS = {
+    'low':    dict(shadow_size=1024, cascades=1, ssr=False, godrays=False, bloom=True, water_grid=96),
+    'medium': dict(shadow_size=2048, cascades=2, ssr=False, godrays=True, bloom=True, water_grid=160),
+    'high':   dict(shadow_size=2048, cascades=2, ssr=True, godrays=True, bloom=True, water_grid=256),
+}
+DEFAULT_GRAPHICS = 'high'
+SHADOW_CASCADE_RADIUS = (36.0, 150.0)       # blocks around the camera covered by each shadow map
+HEIGHTMAP_SIZE = 1024                       # sky occlusion / rain map (blocks, wraps around)
+PRECIPITATION_RADIUS = 28.0                 # rain / snow is drawn in this box around the camera
+RAIN_DROPS = 9000
+
 # textures
 SAND = 1
 GRASS = 2
@@ -157,6 +197,7 @@ WATER_ENTRY_DAMPING = 0.3 # vertical speed kept when plunging into the water
 # underwater ambiance
 WATER_FOG_COLOR = glm.vec3(0.04, 0.22, 0.42)
 WATER_FOG_DENSITY = 0.006  # visibility ~ 20-25 blocks
+
 
 # cloud
 CLOUD_SCALE = 25
