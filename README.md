@@ -2,8 +2,8 @@
 
 Voxel game engine in Python: an endless, saved archipelago with caves, trees and a living sea,
 an accelerated day / night cycle with random weather (rain, storms, snow, fog), soft shadows and
-HDR lighting, gravity and swimming, block breaking / placing, an animated player body seen in
-third person, and hostile creatures.
+HDR lighting, gravity and swimming, block breaking / placing with an inventory, an animated player
+body seen in third person, and hostile creatures.
 
 Built with [pygame-ce](https://pyga.me/), [moderngl](https://github.com/moderngl/moderngl)
 (OpenGL 3.3 core), [PyGLM](https://github.com/Zuzu-Typ/PyGLM) and [NumPy](https://numpy.org/).
@@ -87,8 +87,10 @@ The game can be started from any directory (`python path/to/main.py`).
 | Fly up / down           | `Space` / `Left Shift` (fly mode)         |
 | Look around             | Mouse                                     |
 | Break block             | Hold left click (cracks grow; harder blocks take longer) |
-| Place block             | Left click (place mode)                   |
+| Place block             | Left click (place mode), uses the selected hotbar slot |
 | Switch break / place    | Right click                               |
+| Choose the block        | Mouse wheel, or keys `1` to `5` above the letters |
+| Open / close the backpack | `I` (or `Esc` to close)                 |
 | Release mouse           | `Esc`; click in the window to capture it again |
 | Quit                    | `Esc` while the mouse is released, or close the window |
 
@@ -98,6 +100,24 @@ Fly mode has no gravity but still collides with blocks.
 In the water the player floats and sinks slowly. Under water, the view turns blue and foggy.
 To climb out, swim up against the bank.
 The generated world is surrounded by invisible walls.
+
+## Inventory
+
+- **Hotbar**: 5 slots at the bottom of the screen. The selected one (white frame, its name shows
+  for a moment) is the block you build with. Each block placed takes one item; when the slot is
+  empty, nothing can be built until you select another block.
+- **Collecting**: a broken block leaves a small copy of itself that pops out, falls (and floats
+  on the sea). Walk close to it to pick it up: it goes onto a stack of the same block (up to 64),
+  else into the first free slot, hotbar first. A number in the corner of a slot shows how many
+  items it holds. When the inventory is full, items stay on the ground.
+- **Backpack** (`I`): 20 more slots. The mouse is released while it is open:
+  - click a slot to take its stack, click another to put it down (merged with the same block,
+    else swapped); dragging works too;
+  - `Shift` + click sends a stack between the hotbar and the backpack;
+  - click outside the slots to throw the stack you carry;
+  - close with `I` or `Esc`: a stack still carried goes back to its slot.
+- The inventory and the items lying around are saved with the world. A new world starts with an
+  empty inventory.
 
 ## Day, night and weather
 
@@ -177,6 +197,9 @@ All of these are vectorized with NumPy.
 - `mobs/`: the `Mob` base class (physics, animation, rendering), the hostile `Tourbeux` and the
   spawn manager.
 - `shaders/mob.*`: GPU skinning.
+- `inventory.py`: hotbar and backpack slots, stacks, moves (pure Python, tested). `hud.py` draws
+  them (block icons made from the block textures). `world_objects/drops.py`: items lying in the
+  world (physics, pickup), drawn by `render/drops.py` and `shaders/item.*`.
 - `atmosphere/`: the clock, sun and moon (`daycycle.py`), the random weather (`weather.py`), the
   light colors they give (`lighting.py`) and the lightning (`environment.py`). Pure Python, tested
   without a GPU.
