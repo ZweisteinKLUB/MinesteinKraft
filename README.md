@@ -1,7 +1,8 @@
 # MinesteinKraft
 
 Voxel game engine in Python: an endless, saved archipelago with caves, trees, water and clouds,
-ambient occlusion, gravity and swimming, and block breaking / placing.
+ambient occlusion, gravity and swimming, block breaking / placing, an animated player body seen in
+third person, and hostile creatures.
 
 Built with [pygame-ce](https://pyga.me/), [moderngl](https://github.com/moderngl/moderngl)
 (OpenGL 3.3 core), [PyGLM](https://github.com/Zuzu-Typ/PyGLM) and [NumPy](https://numpy.org/).
@@ -77,8 +78,9 @@ The game can be started from any directory (`python path/to/main.py`).
 | Move                    | `Z Q S D` (AZERTY), `W A S D` or arrows   |
 | Jump                    | `Space` (climbs one block)                |
 | Swim up / dive          | `Space` / `Left Shift` (in water)         |
-| Sprint                  | `Left Ctrl`                               |
+| Run                     | `Left Ctrl` (walk 3.5 blocks/s, run 7)    |
 | Toggle fly mode         | `F`                                       |
+| Change view             | `F5`: first person, behind, in front      |
 | Fly up / down           | `Space` / `Left Shift` (fly mode)         |
 | Look around             | Mouse                                     |
 | Break block             | Hold left click (cracks grow; harder blocks take longer) |
@@ -93,6 +95,27 @@ Fly mode has no gravity but still collides with blocks.
 In the water the player floats and sinks slowly. Under water, the view turns blue and foggy.
 To climb out, swim up against the bank.
 The generated world is surrounded by invisible walls.
+
+## Mobs
+
+Mobs are the creatures of the world, peaceful or hostile. Each one has a body with a skeleton,
+its own animations and behaviour, and collides with blocks like the player.
+
+- **The player** is a mob too. Press `F5` to see the body from behind (over the shoulder) or from
+  the front. The camera is pulled in by walls.
+  - A 1.80 m human (1 block = 1 m) with head, trunk, arms and legs.
+  - Animations: standing, walking, running, jumping, falling, hovering and flying, treading water
+    and front crawl.
+  - Walking and running blend with the speed, so the feet do not slide. The head follows the view.
+- **The Tourbeux** is a hostile brute of peat and mossy stone, with glowing amber eyes.
+  It walks hunched on its knuckles and has mushrooms growing on its back.
+  - It wanders slowly on land.
+  - When it sees you within 16 blocks, it charges at 5 blocks/s: faster than walking, slower
+    than running.
+  - Close enough, it rears up and slams both fists, knocking you back (no damage yet).
+  - It never goes into water: swim away to escape.
+  - Up to 3 appear on land, 24 to 48 blocks around the player. They vanish when left far behind
+    and are not saved.
 
 ## Development
 
@@ -109,6 +132,14 @@ The code layout:
 - `voxel_handler.py`: ray casting and editing.
 
 All of these are vectorized with NumPy.
+
+- `models/`: glTF (`.glb`) loading and skeletal animation (cross-fades, speed-matched blends).
+  No extra dependency.
+- `mobs/`: the `Mob` base class (physics, animation, rendering), the hostile `Tourbeux` and the
+  spawn manager.
+- `shaders/mob.*`: GPU skinning.
+- `assets/models/*.glb`: the models and their animations. They are exported from the Blender
+  sources in `assets/models/src/`; each animation is one NLA track, exported as a named clip.
 
 ### Build an executable
 
