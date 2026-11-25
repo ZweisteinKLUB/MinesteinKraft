@@ -56,11 +56,11 @@ void main() {
     float patches = texture(u_noise, pos.xz * 0.045).g;
     float snow = top * exposed * smoothstep(patches * 0.55, patches * 0.55 + 0.2, weather.w);
     float wet = weather.z * exposed * mix(0.6, 1.0, top) * (1.0 - snow);
-    float puddle = top * wet * smoothstep(0.58, 0.68, texture(u_noise, pos.xz * 0.03 + 0.5).r);
+    float puddle = top * wet * smoothstep(0.55, 0.6, texture(u_noise, pos.xz * 0.03 + 0.5).r);
 
     albedo = mix(albedo, SNOW_ALBEDO, snow);
     albedo *= mix(1.0, 0.45, wet * POROSITY[voxel_id & 7]);
-    albedo *= mix(1.0, 0.7, puddle);
+    albedo *= mix(1.0, 0.45, puddle);
     rough = mix(rough, 0.5, snow);
     rough = mix(rough, 0.18, wet * 0.8);
     rough = mix(rough, 0.03, puddle);
@@ -92,7 +92,7 @@ void main() {
     vec3 r = reflect(-v, n);
     float fresnel_v = fresnel_schlick(dot(n, v), f0);
     float smooth_ = (1.0 - rough) * (1.0 - rough);
-    vec3 reflection = sky_radiance(r) * fresnel_v * smooth_ * sky_vis * ao;
+    vec3 reflection = sky_radiance(r) * max(fresnel_v, 0.1 * puddle) * smooth_ * sky_vis * ao;
 
     // under the sea: light absorbed on its way down, caustics
     if (water_depth > 0.0) {

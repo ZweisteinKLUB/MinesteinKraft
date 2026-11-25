@@ -171,10 +171,16 @@ void main() {
 
     // ---------------------------------------------------------------- foam
     float foam_noise = texture(u_noise, rest_xz * 0.35 + wind.xy * t * 0.02).b;
-    float shore = 1.0 - smoothstep(0.0, 0.9, thickness + foam_noise * 0.6 - 0.25 * sin(t * 1.3 + rest_xz.x * 0.4));
+    // surf: bands washing up and down the beach (depth of the sea floor from the height map)
+    float floor_depth = fog_params.w - column_top(rest_xz + n.xz * 0.3);
+    float shallow = min(thickness * 1.5, floor_depth + 0.6);
+    float wash = sin(t * 1.1 - shallow * 5.0 + foam_noise * 3.0) * 0.5 + 0.5;
+    float shore = (1.0 - smoothstep(0.4, 1.9, shallow)) * mix(0.35, 1.0, wash);
+    shore *= smoothstep(0.3, 0.55, foam_noise + 0.4 * (1.0 - smoothstep(0.4, 1.0, shallow)));
     float crest = smoothstep(0.7, 1.0, (pos.y - fog_params.w) / max(wind.w * 1.1, 0.01)) * smoothstep(0.4, 0.9, wind.z);
-    float foam = saturate(max(shore * 0.8, crest * 0.7) * smoothstep(0.45, 0.75, foam_noise + 0.15));
-    vec3 foam_col = vec3(0.85, 0.9, 0.92) * (lit + light_color.rgb * saturate(light_dir.y) * shadow * 0.3);
+    crest *= smoothstep(0.45, 0.75, foam_noise + 0.15);
+    float foam = saturate(max(shore * 0.9, crest * 0.7));
+    vec3 foam_col = vec3(0.9, 0.93, 0.95) * (ambient_sky.rgb + light_color.rgb * saturate(light_dir.y) * shadow);
     col = mix(col, foam_col, foam);
 
     col = apply_fog(col, pos);
