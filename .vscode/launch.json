@@ -1,0 +1,33 @@
+{
+    // Debug button (F5) / Run without debugging (Ctrl+F5):
+    // the preLaunchTask runs the launch script of the current OS (run.sh or run.bat --setup-only)
+    // to create .venv and install the dependencies, then debugpy starts main.py with that venv.
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "MinesteinKraft",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "cwd": "${workspaceFolder}",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "windows": { "python": "${workspaceFolder}\\.venv\\Scripts\\python.exe" },
+            "preLaunchTask": "MinesteinKraft: préparer l'environnement",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "MinesteinKraft (mondes de test)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "args": ["--world-dir", "${workspaceFolder}/.debug-worlds"],
+            "cwd": "${workspaceFolder}",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "windows": { "python": "${workspaceFolder}\\.venv\\Scripts\\python.exe" },
+            "preLaunchTask": "MinesteinKraft: préparer l'environnement",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
+    ]
+}
