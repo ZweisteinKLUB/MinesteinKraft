@@ -1,7 +1,8 @@
 # MinesteinKraft
 
-Voxel game engine in Python: an endless, saved archipelago with caves, trees, water and clouds,
-ambient occlusion, gravity and swimming, block breaking / placing, an animated player body seen in
+Voxel game engine in Python: an endless, saved archipelago with caves, trees and a living sea,
+an accelerated day / night cycle with random weather (rain, storms, snow, fog), soft shadows and
+HDR lighting, gravity and swimming, block breaking / placing, an animated player body seen in
 third person, and hostile creatures.
 
 Built with [pygame-ce](https://pyga.me/), [moderngl](https://github.com/moderngl/moderngl)
@@ -31,7 +32,7 @@ After that they start the game immediately, reinstalling only when `requirements
 | macOS         | double-click `run.command` in the Finder          |
 | Windows       | double-click `run.bat`, or `run.bat` in a terminal |
 
-Options are passed to the game, e.g. `./run.sh --world-dir ~/my-worlds`.
+Options are passed to the game, e.g. `./run.sh --world-dir ~/my-worlds` or `./run.sh --graphics low`.
 
 By hand:
 
@@ -81,6 +82,8 @@ The game can be started from any directory (`python path/to/main.py`).
 | Run                     | `Left Ctrl` (walk 3.5 blocks/s, run 7)    |
 | Toggle fly mode         | `F`                                       |
 | Change view             | `F5`: first person, behind, in front      |
+| Change the weather      | `F6` (clear, cloudy, fog, rain, storm, snow) |
+| Skip one hour           | `F7`                                      |
 | Fly up / down           | `Space` / `Left Shift` (fly mode)         |
 | Look around             | Mouse                                     |
 | Break block             | Hold left click (cracks grow; harder blocks take longer) |
@@ -95,6 +98,42 @@ Fly mode has no gravity but still collides with blocks.
 In the water the player floats and sinks slowly. Under water, the view turns blue and foggy.
 To climb out, swim up against the bank.
 The generated world is surrounded by invisible walls.
+
+## Day, night and weather
+
+- **A day lasts 20 minutes.** The sun rises in the east, crosses the southern sky and sets in the
+  west. The moon follows, with its phases (a full cycle every 8 days): a full moon lights the
+  night and casts shadows; on a new moon the stars and the milky way take over.
+  - The time of day, the day count and the weather are saved with the world. A new world starts
+    at 8 am. The window title shows the day, the time and the weather.
+- **The weather changes on its own**, at random, after a few game hours. Each change takes about
+  40 seconds, like a front coming in.
+  - *Clear*, *cloudy*: drifting clouds, their shadows move over the ground.
+  - *Fog*: a thick ground fog, more likely in the morning.
+  - *Rain*: rain falls (not under roofs, trees or in caves), splashes on the ground and rings on
+    the water. The ground gets wet, darker and shiny, with puddles; it dries in the sun.
+  - *Storm*: dark sky, heavy rain, strong wind and waves, lightning strikes.
+  - *Snow*: snow flakes, and a snow layer builds up on the ground, then melts. Above the snow
+    line (high mountains), rain falls as snow.
+- **The sea** moves with the wind: waves (higher in a storm, calmer near the shore), ripples,
+  foam on the beaches and on the crests of storm waves. It is transparent near the shore,
+  reflects the sky and the land, and glitters in the sun. From below, the sky shows through a
+  circular window, as in real water.
+- **Light**: soft shadows of the sun (and of the moon), light reflected by the ground, dark caves,
+  leaves swaying in the wind and glowing when backlit, glare and light shafts around the sun.
+
+## Graphics
+
+The image is computed in HDR, then tone mapped like a camera. `--graphics` sets the quality:
+
+| Preset   | Shadows                  | Water reflections of the land | Light shafts |
+|----------|--------------------------|-------------------------------|--------------|
+| `low`    | 1 shadow map, 1024 px    | sky only                      | no           |
+| `medium` | 2 shadow maps, 2048 px   | sky only                      | yes          |
+| `high`   | 2 shadow maps, 2048 px   | yes (screen space)            | yes          |
+
+`high` is the default. On a mid-range desktop GPU (Radeon RX 6700 XT) a frame takes about 4 ms
+at 1920 x 1080; integrated GPUs may need `low`.
 
 ## Mobs
 
@@ -138,6 +177,14 @@ All of these are vectorized with NumPy.
 - `mobs/`: the `Mob` base class (physics, animation, rendering), the hostile `Tourbeux` and the
   spawn manager.
 - `shaders/mob.*`: GPU skinning.
+- `atmosphere/`: the clock, sun and moon (`daycycle.py`), the random weather (`weather.py`), the
+  light colors they give (`lighting.py`) and the lightning (`environment.py`). Pure Python, tested
+  without a GPU.
+- `render/`: the frame (`pipeline.py`): shadow maps, HDR scene, sky, sea, rain / snow, lightning,
+  then bloom, light shafts, tone mapping and FXAA (`postprocess.py`).
+- `shaders/include/*.glsl`: code shared by the shaders (`#include "file.glsl"`, expanded by
+  `shader_program.py`): the `Env` uniform block written once per frame, sky and fog, lighting,
+  waves.
 - `assets/models/*.glb`: the models and their animations. They are exported from the Blender
   sources in `assets/models/src/`; each animation is one NLA track, exported as a named clip.
 
@@ -161,3 +208,4 @@ when a `v*` tag is pushed.
 - **Linux**: install the Mesa drivers, e.g. `sudo apt install libgl1-mesa-dri libegl1`.
 - **Slow or black window on a laptop with two GPUs**: force the dedicated GPU for Python or the
   executable.
+- **Low frame rate**: start with `--graphics low` (or `medium`).
