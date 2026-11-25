@@ -6,6 +6,7 @@ from world_objects.cracks import Cracks
 from world_objects.water import Water
 from world_objects.clouds import Clouds
 from mobs.render import MobRenderer
+from mobs.manager import MobManager
 
 class Scene:
     def __init__(self, app):
@@ -16,9 +17,11 @@ class Scene:
         self.water = Water(app)
         self.clouds = Clouds(app)
         self.mob_renderer = MobRenderer(app)
+        self.mobs = MobManager(app)
 
     def update(self):
         self.world.update()
+        self.mobs.update(self.app.delta_time * 0.001)
         self.voxel_marker.update()
         self.clouds.update()
 
@@ -29,6 +32,7 @@ class Scene:
 
         # mobs (the player's own body only shows in third person view)
         self.mob_renderer.render(self.app.player)
+        self.mobs.render(self.mob_renderer)
         
         # rendering without cull face
         self.app.ctx.disable(mgl.CULL_FACE)

@@ -259,11 +259,15 @@ class Player(Camera, Mob):
             self.visible = False
         else:
             self.visible = True
-            away = -self.look if self.view_mode == VIEW_BEHIND else glm.vec3(self.look)
-            distance = self.camera_clearance(self.position, away, CAMERA_DISTANCE)
-            self.view_position = self.position + away * distance
-            self.view_dir = -away
-            right = glm.normalize(glm.cross(self.view_dir, glm.vec3(0, 1, 0)))
+            back = -self.look if self.view_mode == VIEW_BEHIND else glm.vec3(self.look)
+            side, rise = CAMERA_SHOULDER
+            view_dir = -back
+            right = glm.normalize(glm.cross(view_dir, glm.vec3(0, 1, 0)))
+            offset = back * CAMERA_DISTANCE + right * side + glm.vec3(0, rise, 0)
+            length = glm.length(offset)
+            distance = self.camera_clearance(self.position, offset / length, length)
+            self.view_position = self.position + offset * (distance / length)
+            self.view_dir = view_dir
             self.view_up = glm.normalize(glm.cross(right, self.view_dir))
         if self.shake > 0:
             self.shake = max(0.0, self.shake - self.app.delta_time * 0.001)

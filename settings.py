@@ -75,6 +75,7 @@ STEP_HEIGHT = 0.5  # obstacles up to this height are climbed automatically
 # view: first person, third person from behind, third person from the front (F5)
 CAMERA_DISTANCE = 4.0     # third person camera distance from the eyes (shortened by walls)
 CAMERA_MARGIN = 0.25      # gap kept between the camera and a block
+CAMERA_SHOULDER = (0.6, 0.35)  # third person: camera shifted right / up (over the shoulder)
 
 # mobs: animation (ground speed of each locomotion clip at its nominal rate, see models/)
 ANIM_FADE = 0.2           # seconds of cross-fade between animation states
@@ -85,6 +86,26 @@ BODY_TURN_SPEED = 10.0    # rad/s, body turning towards the moving direction
 HEAD_MAX_YAW = math.radians(70)
 HEAD_MAX_PITCH = math.radians(55)
 SWIM_DEPTH = 1.0          # water depth (above the feet) from which the player swims
+
+# hostile mob: the Tourbeux (peat-and-stone brute, walks on its knuckles, avoids water)
+TOURBEUX_WALK_ANIM_SPEED = 0.68    # ground speed of its clips at their nominal rate
+TOURBEUX_CHARGE_ANIM_SPEED = 2.69
+TOURBEUX_WANDER_SPEED = 1.2        # blocks/s
+TOURBEUX_CHARGE_SPEED = 5.0        # faster than walking (3.5), slower than running (7)
+TOURBEUX_DETECT_RANGE = 16.0       # sees the player within this distance (line of sight)
+TOURBEUX_GIVE_UP_RANGE = 24.0      # stops chasing beyond this distance
+TOURBEUX_MEMORY = 3.0              # seconds it keeps chasing after losing sight of the player
+TOURBEUX_ATTACK_RANGE = 1.7        # distance (feet to feet) from which it strikes
+TOURBEUX_ATTACK_COOLDOWN = 1.2     # seconds between two strikes
+TOURBEUX_IMPACT = 0.55             # moment of the impact in the attack clip (fraction)
+TOURBEUX_KNOCKBACK = 9.0           # horizontal push given to the player (blocks/s)
+TOURBEUX_KNOCKBACK_UP = 5.5        # small hop given to the player (blocks/s)
+
+# mob spawning around the player (not saved with the world)
+MAX_HOSTILES = 3
+SPAWN_INTERVAL = 2.0               # seconds between spawn attempts
+SPAWN_DISTANCE = (24.0, 48.0)      # min / max horizontal distance from the player
+DESPAWN_DISTANCE = 64.0
 
 # colors
 BG_COLOR = glm.vec3(0.58, 0.83, 0.99)

@@ -48,6 +48,18 @@ def surface_height_in(get_voxels, wx, wz):
     return 0
 
 
+def voxel_at_in(get_voxels, wx, wy, wz):
+    """Block id at integer world coordinates (0 above / below the world), None if not loaded."""
+    if wy < 0 or wy >= WORLD_SIZE_Y:
+        return 0
+    cx, cy, cz = chunk_key(wx, wy, wz)
+    voxels = get_voxels((cx, cy, cz))
+    if voxels is None:
+        return None
+    lx, ly, lz = wx - cx * CHUNK_SIZE, wy - cy * CHUNK_SIZE, wz - cz * CHUNK_SIZE
+    return int(voxels[lx + CHUNK_SIZE * lz + CHUNK_AREA * ly])
+
+
 def columns_by_distance(center_cx, center_cz, radius):
     """Chunk columns (cx, cz) within ``radius`` of the center, nearest first."""
     r = np.arange(-radius, radius + 1)
@@ -85,6 +97,10 @@ class World:
 
     def surface_height(self, wx, wz):
         return surface_height_in(self.get_voxels, wx, wz)
+
+    def voxel_at(self, wx, wy, wz):
+        """Block id at integer world coordinates, None when its chunk is not loaded."""
+        return voxel_at_in(self.get_voxels, wx, wy, wz)
 
     # ------------------------------------------------------------------ loading
     def load_column(self, cx, cz):

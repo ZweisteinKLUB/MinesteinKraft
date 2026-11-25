@@ -50,6 +50,7 @@ class Mob:
     width = 0.6
     height = 1.8
     step_height = STEP_HEIGHT
+    model_offset = 0.0   # shift of the model along its facing direction (centers long bodies)
 
     def init_mob(self, app, feet, yaw=0.0):
         self.app = app
@@ -118,7 +119,10 @@ class Mob:
 
     def model_matrix(self):
         m = glm.translate(glm.mat4(), self.feet)
-        return glm.rotate(m, yaw_to_model_angle(self.body_yaw), glm.vec3(0, 1, 0))
+        m = glm.rotate(m, yaw_to_model_angle(self.body_yaw), glm.vec3(0, 1, 0))
+        if self.model_offset:
+            m = glm.translate(m, glm.vec3(0, 0, self.model_offset))
+        return m
 
     def skin_matrices(self):
         return self.animator.skin_matrices(self.look_extra or None)
