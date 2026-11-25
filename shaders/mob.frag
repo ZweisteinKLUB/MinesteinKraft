@@ -26,7 +26,7 @@ float sky_fog(float dist) {
 }
 
 void main() {
-    vec3 col = pow(color, gamma);
+    vec3 col = color;  // glTF vertex colors are linear
     vec3 n = normalize(normal);
     // sun + sky ambient (lighter from above), close to the block face shading
     float light = 0.45 + 0.55 * max(dot(n, sun_dir), 0.0) + 0.1 * n.y;

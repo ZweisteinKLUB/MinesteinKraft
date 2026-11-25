@@ -5,6 +5,7 @@ from world_objects.voxel_marker import VoxelMarker
 from world_objects.cracks import Cracks
 from world_objects.water import Water
 from world_objects.clouds import Clouds
+from mobs.render import MobRenderer
 
 class Scene:
     def __init__(self, app):
@@ -14,7 +15,8 @@ class Scene:
         self.cracks = Cracks(self.world.voxel_handler)
         self.water = Water(app)
         self.clouds = Clouds(app)
-        
+        self.mob_renderer = MobRenderer(app)
+
     def update(self):
         self.world.update()
         self.voxel_marker.update()
@@ -24,6 +26,9 @@ class Scene:
         # chunks rendering
         self.world.render()
         self.cracks.render()
+
+        # mobs (the player's own body only shows in third person view)
+        self.mob_renderer.render(self.app.player)
         
         # rendering without cull face
         self.app.ctx.disable(mgl.CULL_FACE)

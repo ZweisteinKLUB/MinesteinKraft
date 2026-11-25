@@ -17,6 +17,11 @@ class Camera:
         self.aspect_ratio = aspect_ratio
         self.m_proj = glm.perspective(V_FOV, aspect_ratio, NEAR, FAR)
         self.m_view = glm.mat4()
+
+        # render camera: equals position / look in first person, moved away in third person
+        self.view_position = glm.vec3(self.position)
+        self.view_dir = glm.vec3(self.look)
+        self.view_up = glm.vec3(self.up)
         
         self.frustum = Frustum(self)
         
@@ -29,10 +34,17 @@ class Camera:
 
     def update(self):
         self.update_vectors()
+        self.update_view()
         self.update_view_matrix()
-    
+
+    def update_view(self):
+        """Place the render camera (first person: at the eyes, looking where the player aims)."""
+        self.view_position = glm.vec3(self.position)
+        self.view_dir = glm.vec3(self.look)
+        self.view_up = glm.vec3(self.up)
+
     def update_view_matrix(self):
-        self.m_view = glm.lookAt(self.position, self.position + self.look, self.up)
+        self.m_view = glm.lookAt(self.view_position, self.view_position + self.view_dir, self.view_up)
         
     def update_vectors(self):
         #look vectors

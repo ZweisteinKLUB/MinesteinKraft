@@ -77,12 +77,12 @@ class ShaderProgram:
     def update(self):
         for program in self.programs:
             self.set_uniform(program, 'm_view', self.player.m_view)
-        underwater = 1.0 if self.player.head_underwater else 0.0
+        underwater = 1.0 if self.player.camera_underwater else 0.0
         for program in (self.chunk, self.water, self.clouds, self.mob):
             self.set_uniform(program, 'u_underwater', underwater)
         self.set_uniform(self.chunk, 'u_time', self.app.time)
         # the water plane follows the camera, snapped to whole blocks
-        cam = self.player.position
+        cam = self.player.view_position
         self.set_uniform(self.water, 'u_center', (float(math.floor(cam.x)), float(math.floor(cam.z))))
 
     def get_program(self, shader_name):

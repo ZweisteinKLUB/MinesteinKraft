@@ -164,7 +164,7 @@ class VoxelEngine:
         pg.display.set_caption(f'MinesteinKraft - {self.clock.get_fps() :.0f} FPS')
 
     def render(self):
-        self.ctx.clear(color=WATER_FOG_COLOR if self.player.head_underwater else BG_COLOR)
+        self.ctx.clear(color=WATER_FOG_COLOR if self.player.camera_underwater else BG_COLOR)
         self.scene.render()
         pg.display.flip()
 

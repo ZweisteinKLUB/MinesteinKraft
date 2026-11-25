@@ -1,7 +1,9 @@
+import random
 import pygame as pg
 from camera import Camera
 from settings import *
 import physics
+from mobs.mob import Mob, wrap_angle, turn_towards, locomotion_blend
 
 # Movement keys: ZQSD (AZERTY), WASD (QWERTY) and arrows all work.
 KEYS_FORWARD = (pg.K_z, pg.K_w, pg.K_UP)
@@ -12,19 +14,29 @@ KEYS_JUMP_UP = (pg.K_SPACE,)   # jump when walking, up when flying
 KEYS_DOWN = (pg.K_LSHIFT,)     # down when flying
 KEYS_SPRINT = (pg.K_LCTRL,)
 KEY_TOGGLE_FLY = pg.K_f
+KEY_TOGGLE_VIEW = pg.K_F5
+
+VIEW_FIRST_PERSON, VIEW_BEHIND, VIEW_FRONT = range(3)
+VIEW_NAMES = ('first person', 'third person (behind)', 'third person (front)')
+KNOCKBACK_DECAY = 5.0   # 1/s
 
 JUMP_SPEED = math.sqrt(2 * GRAVITY * JUMP_HEIGHT)
 
 
-class Player(Camera):
+class Player(Camera, Mob):
+    """The player: a camera at the eyes of a human mob (visible in third person view)."""
+    asset_name = 'player'
+    width = PLAYER_WIDTH
+    height = PLAYER_HEIGHT
+
     def __init__(self, app, position=PLAYER_POS, yaw=-90, pitch=0, aspect_ratio=16 / 9):
-        self.app = app
         super().__init__(position, yaw, pitch, aspect_ratio)
-        # feet: center of the bottom of the player box; camera position = eyes
-        self.feet = glm.vec3(position) - glm.vec3(0, PLAYER_EYE_HEIGHT, 0)
-        self.velocity = glm.vec3(0)
-        self.on_ground = False
+        # feet: center of the bottom of the player box; position = eyes (aim, interactions)
+        self.init_mob(app, glm.vec3(position) - glm.vec3(0, PLAYER_EYE_HEIGHT, 0), self.yaw)
         self.was_in_water = False
+        self.view_mode = VIEW_FIRST_PERSON
+        self.knockback = glm.vec3(0)  # horizontal push (blocks/s) from hits, fades out
+        self.shake = 0.0              # seconds of camera shake left
 
     # ------------------------------------------------------------------ setup
     def spawn(self, x=CENTER_XZ, z=CENTER_XZ):
@@ -34,6 +46,7 @@ class Player(Camera):
         self.feet = glm.vec3(x + 0.5, ground + physics.EPS, z + 0.5)
         self.velocity = glm.vec3(0)
         self.on_ground = True
+        self.body_yaw = self.yaw
         self.sync_camera()
 
     def restore(self, state):
@@ -42,6 +55,7 @@ class Player(Camera):
         self.yaw, self.pitch, self.fly = state['yaw'], state['pitch'], state['fly']
         self.velocity = glm.vec3(0)
         self.on_ground = False
+        self.body_yaw = self.yaw
         self.sync_camera()
         self.update_vectors()
 
@@ -62,7 +76,8 @@ class Player(Camera):
             self.mouse_control()
         self.update_vectors()  # movement directions follow the new view first
         self.physics_update()
-        super().update()
+        self.update_animation(self.app.delta_time * 0.001)
+        super().update()  # camera: view vectors, render camera (update_view), view matrix
 
     def handle_event(self, event):
         if not self.app.mouse_captured:
@@ -117,6 +132,7 @@ class Player(Camera):
 
         if self.fly:
             # no gravity, collisions on, no auto step
+            speed = FLY_SPEED
             if sprint:
                 speed *= PLAYER_SPRINT_FACTOR
             move = wish + glm.vec3(0, vertical, 0)
@@ -143,8 +159,10 @@ class Player(Camera):
                 vy = self.velocity.y - GRAVITY * min(dt, physics.MAX_DT)
                 if vertical > 0 and self.on_ground:
                     vy = JUMP_SPEED
+            horizontal += self.knockback
             velocity = glm.vec3(horizontal.x, max(vy, -MAX_FALL_SPEED), horizontal.z)
             step_height = STEP_HEIGHT
+        self.knockback *= math.exp(-KNOCKBACK_DECAY * min(dt, physics.MAX_DT))
 
         self.was_in_water = not self.fly and self.feet.y < WATER_LINE
         feet, vel, self.on_ground = physics.step(
@@ -176,3 +194,98 @@ class Player(Camera):
         if event.key == KEY_TOGGLE_FLY:
             self.fly = not self.fly
             self.velocity = glm.vec3(0)  # leaving fly mode: start falling from rest
+        elif event.key == KEY_TOGGLE_VIEW:
+            self.view_mode = (self.view_mode + 1) % len(VIEW_NAMES)
+
+    # ------------------------------------------------------------------ hits
+    def push(self, horizontal, up=0.0):
+        """Knock the player back (a mob hit): horizontal push + small hop, camera shake."""
+        self.knockback += glm.vec3(horizontal.x, 0.0, horizontal.z)
+        if not self.fly and up > 0:
+            self.velocity.y = max(self.velocity.y, up)
+            self.on_ground = False
+        self.shake = 0.25
+
+    # ------------------------------------------------------------------ body animation
+    @property
+    def swimming(self):
+        return not self.fly and self.water_depth > SWIM_DEPTH
+
+    def animate(self, dt):
+        speed = self.horizontal_speed
+        moving = speed > 0.3
+        self.air_time = 0.0 if self.on_ground else self.air_time + dt
+
+        # body: faces the moving direction, else turns to the view when it looks too far aside
+        target = self.body_yaw
+        if moving:
+            target = math.atan2(self.velocity.z, self.velocity.x)
+        elif abs(wrap_angle(self.yaw - self.body_yaw)) > math.radians(50) or self.view_mode == VIEW_FIRST_PERSON:
+            target = self.yaw
+        self.body_yaw = turn_towards(self.body_yaw, target, BODY_TURN_SPEED * dt)
+
+        anim = self.animator
+        head_pitch_share = 1.0
+        if self.fly:
+            anim.set_state('fly' if moving else 'fly_idle')
+            head_pitch_share = 0.5
+        elif self.swimming:
+            if moving:
+                anim.set_state('swim', rate=max(0.7, speed / SWIM_ANIM_SPEED))
+            else:
+                anim.set_state('swim_idle')
+            head_pitch_share = 0.4
+        elif not self.on_ground and (self.velocity.y > 2.0 or self.air_time > 0.2) and self.water_depth <= 0:
+            if self.velocity.y > 0:
+                anim.set_state('jump', loop=False, fade=0.1)
+            else:
+                anim.set_state('fall', fade=0.3)
+        elif not moving:
+            anim.set_state('idle', fade=0.25)
+        else:
+            w_walk, w_run, rate = locomotion_blend(speed, WALK_ANIM_SPEED, RUN_ANIM_SPEED,
+                                                   walk_top=PLAYER_SPEED * 1000 * 1.1,
+                                                   run_from=PLAYER_SPEED * 1000 * WALK_SPRINT_FACTOR * 0.9)
+            anim.set_blend('move', {'walk': w_walk, 'run': w_run}, rate=rate)
+
+        yaw_offset = max(-HEAD_MAX_YAW, min(HEAD_MAX_YAW, wrap_angle(self.yaw - self.body_yaw)))
+        pitch = max(-HEAD_MAX_PITCH, min(HEAD_MAX_PITCH, self.pitch)) * head_pitch_share
+        self.aim_head(yaw_offset, pitch, (('neck', 0.4), ('head', 0.6)))
+
+    # ------------------------------------------------------------------ view
+    def update_view(self):
+        if self.view_mode == VIEW_FIRST_PERSON:
+            super().update_view()
+            self.visible = False
+        else:
+            self.visible = True
+            away = -self.look if self.view_mode == VIEW_BEHIND else glm.vec3(self.look)
+            distance = self.camera_clearance(self.position, away, CAMERA_DISTANCE)
+            self.view_position = self.position + away * distance
+            self.view_dir = -away
+            right = glm.normalize(glm.cross(self.view_dir, glm.vec3(0, 1, 0)))
+            self.view_up = glm.normalize(glm.cross(right, self.view_dir))
+        if self.shake > 0:
+            self.shake = max(0.0, self.shake - self.app.delta_time * 0.001)
+            amount = 0.12 * self.shake
+            self.view_position += glm.vec3(random.uniform(-amount, amount), random.uniform(-amount, amount),
+                                           random.uniform(-amount, amount))
+
+    def camera_clearance(self, origin, direction, max_distance):
+        """How far the camera can go from ``origin`` along ``direction`` before entering a block."""
+        block_height = self.app.scene.world.block_height
+        step = 0.05
+        t = 0.0
+        while t < max_distance + CAMERA_MARGIN:
+            t += step
+            p = origin + direction * t
+            x, y, z = math.floor(p.x), math.floor(p.y), math.floor(p.z)
+            h = block_height(x, y, z)
+            if h > 0 and p.y < y + h:
+                return max(0.0, min(max_distance, t - CAMERA_MARGIN))
+        return max_distance
+
+    @property
+    def camera_underwater(self):
+        """Is the render camera below the water line (underwater ambiance)?"""
+        return self.view_position.y < WATER_LINE

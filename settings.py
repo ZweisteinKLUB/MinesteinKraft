@@ -55,9 +55,10 @@ FAR = 2000.0
 PITCH_MAX = glm.radians(89)
 
 #player
-PLAYER_SPEED = 0.005  # blocks per millisecond (5 blocks/s)
+PLAYER_SPEED = 0.0035  # blocks per millisecond (3.5 blocks/s: brisk walk)
+WALK_SPRINT_FACTOR = 2.0  # running (Left Ctrl): 7 blocks/s
+FLY_SPEED = 5.0  # blocks/s
 PLAYER_SPRINT_FACTOR = 10  # fly mode sprint
-WALK_SPRINT_FACTOR = 1.6  # walking sprint
 PLAYER_ROT_SPEED = 0.003
 PLAYER_POS = glm.vec3(CENTER_XZ, WORLD_H * CHUNK_SIZE, CENTER_XZ)  # eye position before spawning
 MOUSE_SENSITIVITY = 0.002
@@ -70,6 +71,20 @@ GRAVITY = 28.0
 JUMP_HEIGHT = 1.25  # enough to climb one block, not two
 MAX_FALL_SPEED = 50.0
 STEP_HEIGHT = 0.5  # obstacles up to this height are climbed automatically
+
+# view: first person, third person from behind, third person from the front (F5)
+CAMERA_DISTANCE = 4.0     # third person camera distance from the eyes (shortened by walls)
+CAMERA_MARGIN = 0.25      # gap kept between the camera and a block
+
+# mobs: animation (ground speed of each locomotion clip at its nominal rate, see models/)
+ANIM_FADE = 0.2           # seconds of cross-fade between animation states
+WALK_ANIM_SPEED = 1.94    # player walk clip
+RUN_ANIM_SPEED = 4.89     # player run clip
+SWIM_ANIM_SPEED = 1.3     # player crawl clip
+BODY_TURN_SPEED = 10.0    # rad/s, body turning towards the moving direction
+HEAD_MAX_YAW = math.radians(70)
+HEAD_MAX_PITCH = math.radians(55)
+SWIM_DEPTH = 1.0          # water depth (above the feet) from which the player swims
 
 # colors
 BG_COLOR = glm.vec3(0.58, 0.83, 0.99)
