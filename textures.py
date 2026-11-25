@@ -11,7 +11,6 @@ class Textures:
 
         # load texture
         self.texture_0 = self.load('frame.png')
-        self.texture_1 = self.load('water.png')
         self.texture_array_0 = self.load('tex_array_0.png', is_tex_array=True)
 
         self.cracks = load_crack_textures(self.ctx)
@@ -19,7 +18,6 @@ class Textures:
         #assign texture unit
         self.texture_0.use(location=0)
         self.texture_array_0.use(location=1)
-        self.texture_1.use(location=2)
         self.cracks.use(location=3)
 
     def load(self, file_name, is_tex_array=False):

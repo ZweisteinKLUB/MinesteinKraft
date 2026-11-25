@@ -1,48 +1,46 @@
 #version 330 core
 
+#include "env.glsl"
+#include "sky.glsl"
+#include "lighting.glsl"
+
 layout (location = 0) out vec4 fragColor;
 
-const vec3 gamma = vec3(2.2);
-const vec3 inv_gamma = 1.0 / gamma;
-const vec3 sun_dir = normalize(vec3(0.4, 1.0, 0.25));
-
-uniform vec3 bg_color;
-uniform float water_line;
-uniform float u_underwater;
-uniform vec3 water_fog_color;
-uniform float water_fog_density;
-uniform float u_fog_start;
-uniform float u_fog_end;
 uniform vec3 u_tint;        // added color (hit flash), 0 = none
+uniform int u_shadow_pass;  // 1: drawing into a shadow map (depth only)
 
 in vec3 color;
 in float emissive;
 in vec3 normal;
 in vec3 frag_world_pos;
 
-float sky_fog(float dist) {
-    float haze = 1.0 - exp2(-0.00001 * dist * dist);
-    return max(haze, smoothstep(u_fog_start, u_fog_end, dist));
-}
-
 void main() {
-    vec3 col = color;  // glTF vertex colors are linear
+    if (u_shadow_pass == 1) {
+        fragColor = vec4(1.0);
+        return;
+    }
+    vec3 albedo = color;  // glTF vertex colors are linear
     vec3 n = normalize(normal);
-    // sun + sky ambient (lighter from above), close to the block face shading
-    float light = 0.45 + 0.55 * max(dot(n, sun_dir), 0.0) + 0.1 * n.y;
-    col = mix(col * light, col * 1.6, emissive);
-    col += u_tint;
+    vec3 pos = frag_world_pos;
+    vec3 v = normalize(camera.xyz - pos);
+    vec3 l = light_dir.xyz;
+    float water_depth = fog_params.w - pos.y;
 
-    float fog_dist = gl_FragCoord.z / gl_FragCoord.w;
-    if (frag_world_pos.y < water_line) {
-        float depth = water_line - frag_world_pos.y;
-        col *= mix(vec3(0.25, 0.55, 1.0) * exp(-0.08 * depth), vec3(1.0), emissive * 0.5);
-    }
-    if (u_underwater > 0.5) {
-        col *= vec3(0.45, 0.75, 1.0);
-        col = mix(col, pow(water_fog_color, gamma), 1.0 - exp(-water_fog_density * fog_dist * fog_dist));
-    } else {
-        col = mix(col, pow(bg_color, gamma), sky_fog(fog_dist) * (1.0 - 0.5 * emissive));
-    }
-    fragColor = vec4(pow(col, inv_gamma), 1.0);
+    float sky_vis = sky_visibility(pos, vec3(0.0, 1.0, 0.0));
+    float ndl = dot(n, l);
+    float shadow = ndl > 0.0 ? shadow_factor(pos, n) * cloud_shadow(pos) : 0.0;
+    vec3 direct = light_color.rgb * saturate(ndl) * shadow;
+    // wet skin and stone shine a little in the rain
+    float rough = mix(0.7, 0.3, weather.z * sky_exposure(pos, vec3(0.0, 1.0, 0.0)));
+    vec3 h = normalize(v + l);
+    vec3 specular = light_color.rgb * ggx_specular(n, v, l, rough) * fresnel_schlick(dot(h, v), 0.04) * shadow;
+    // soft wrap light on the dark side: bodies are rounder than blocks
+    vec3 ambient = ambient_light(n, sky_vis) * (0.75 + 0.25 * saturate(n.y));
+
+    vec3 col = albedo * (direct + ambient + flash_light(n, sky_vis)) + specular;
+    if (water_depth > 0.0) col *= exp(-vec3(0.42, 0.11, 0.06) * water_depth);
+    col = mix(col, albedo * 6.0, emissive);  // glowing parts (eyes)
+    col += u_tint * (light_color.rgb + ambient_sky.rgb + 0.2);
+    col = apply_fog(col, pos);
+    fragColor = vec4(col, 1.0);
 }

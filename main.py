@@ -10,8 +10,13 @@ from menu import MenuScreen
 from ui import UIOverlay
 from shader_program import ShaderProgram
 from scene import Scene
+from atmosphere.environment import Environment
+from render.pipeline import Renderer
 from player import Player
 from textures import Textures
+
+KEY_NEXT_WEATHER = pg.K_F6
+KEY_SKIP_TIME = pg.K_F7
 
 GL_ERROR_HELP = (
     "MinesteinKraft needs OpenGL {major}.{minor} (core profile).\n\n"
@@ -36,8 +41,9 @@ def show_fatal_error(message):
 
 
 class VoxelEngine:
-    def __init__(self, store=None, worlds_dir=None):
+    def __init__(self, store=None, worlds_dir=None, graphics=DEFAULT_GRAPHICS):
         """Open ``store`` directly, or show the world selection menu first."""
+        self.graphics = graphics
         pg.init()
         self.window_size = self.create_window()
         self.ctx = self.create_context()
@@ -111,6 +117,7 @@ class VoxelEngine:
             return
         self.player.set_aspect_ratio(width / height)
         self.shader_program.set_projection(self.player.m_proj)
+        self.renderer.resize((width, height))
 
     # ------------------------------------------------------------------ mouse
     def set_mouse_capture(self, captured):
@@ -129,8 +136,10 @@ class VoxelEngine:
         self.texture = Textures(self)
         w, h = self.window_size
         self.player = Player(self, aspect_ratio=w / h)
+        self.environment = Environment(self.store)
         self.shader_program = ShaderProgram(self)
         self.scene = Scene(self)
+        self.renderer = Renderer(self, self.graphics)
         world = self.scene.world
 
         if self.store.chunk_count() == 0:
@@ -151,6 +160,7 @@ class VoxelEngine:
         world.save()
         self.store.touch()
         world.release()
+        self.renderer.release()
         self.store.close()
 
     def update(self):
@@ -161,11 +171,11 @@ class VoxelEngine:
         self.delta_time = self.clock.tick(FPS)
         self.time = pg.time.get_ticks() * 0.001
 
-        pg.display.set_caption(f'MinesteinKraft - {self.clock.get_fps() :.0f} FPS')
+        pg.display.set_caption(f'MinesteinKraft - {self.clock.get_fps() :.0f} FPS - '
+                               f'{self.environment.status_text()}')
 
     def render(self):
-        self.ctx.clear(color=WATER_FOG_COLOR if self.player.camera_underwater else BG_COLOR)
-        self.scene.render()
+        self.renderer.render()
         pg.display.flip()
 
     def handle_events(self):
@@ -182,6 +192,10 @@ class VoxelEngine:
                 self.set_mouse_capture(False)
             elif event.type == pg.MOUSEBUTTONDOWN and not self.mouse_captured:
                 self.set_mouse_capture(True)  # this click only recaptures the mouse
+            elif event.type == pg.KEYDOWN and event.key == KEY_NEXT_WEATHER:
+                self.environment.next_weather()
+            elif event.type == pg.KEYDOWN and event.key == KEY_SKIP_TIME:
+                self.environment.skip_time()
             elif event.type == pg.WINDOWSIZECHANGED:
                 self.on_resize(event.x, event.y)
             else:
@@ -201,12 +215,14 @@ def parse_args(argv=None):
     parser = argparse.ArgumentParser(description='MinesteinKraft voxel game')
     parser.add_argument('--world-dir', type=Path, default=None,
                         help='folder holding the saves (default: per-user data folder)')
+    parser.add_argument('--graphics', choices=sorted(GRAPHICS_PRESETS), default=DEFAULT_GRAPHICS,
+                        help=f'shadows, reflections and effects quality (default: {DEFAULT_GRAPHICS})')
     return parser.parse_args(argv)
 
 
 def main(argv=None):
     args = parse_args(argv)
-    app = VoxelEngine(worlds_dir=paths.worlds_dir(args.world_dir))
+    app = VoxelEngine(worlds_dir=paths.worlds_dir(args.world_dir), graphics=args.graphics)
     app.run()
     sys.exit()
 

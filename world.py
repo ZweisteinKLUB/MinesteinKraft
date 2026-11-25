@@ -60,6 +60,21 @@ def voxel_at_in(get_voxels, wx, wy, wz):
     return int(voxels[lx + CHUNK_SIZE * lz + CHUNK_AREA * ly])
 
 
+def column_heights_of(chunk_voxels):
+    """Top of the highest block of each column (0 if empty), (CHUNK_SIZE, CHUNK_SIZE) [z, x].
+
+    ``chunk_voxels``: voxel arrays of a chunk column from bottom to top (None if missing).
+    """
+    heights = np.zeros((CHUNK_SIZE, CHUNK_SIZE), dtype=np.uint8)
+    for cy, voxels in enumerate(chunk_voxels):
+        if voxels is None:
+            continue
+        solid = voxels.reshape(CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE) != 0  # [y, z, x]
+        top = CHUNK_SIZE - np.argmax(solid[::-1], axis=0)
+        heights = np.where(solid.any(axis=0), cy * CHUNK_SIZE + top, heights).astype(np.uint8)
+    return heights
+
+
 def columns_by_distance(center_cx, center_cz, radius):
     """Chunk columns (cx, cz) within ``radius`` of the center, nearest first."""
     r = np.arange(-radius, radius + 1)
@@ -82,6 +97,7 @@ class World:
         self.wanted = []           # columns to load, nearest first
         self.center = None         # player column the wanted list was computed for
         self.last_save = time.perf_counter()
+        self.changed_columns = set()  # columns whose block heights changed (renderer height map)
         self.voxel_handler = VoxelHandler(self)
 
     # ------------------------------------------------------------------ queries
@@ -102,9 +118,20 @@ class World:
         """Block id at integer world coordinates, None when its chunk is not loaded."""
         return voxel_at_in(self.get_voxels, wx, wy, wz)
 
+    def column_heights(self, cx, cz):
+        """Block heights of a loaded chunk column (see column_heights_of), None if not loaded."""
+        if not self.column_loaded(cx, cz):
+            return None
+        return column_heights_of([self.get_voxels((cx, cy, cz)) for cy in range(WORLD_H)])
+
+    def take_changed_columns(self):
+        changed, self.changed_columns = self.changed_columns, set()
+        return changed
+
     # ------------------------------------------------------------------ loading
     def load_column(self, cx, cz):
         """Load (or generate and queue for saving) every chunk of a column."""
+        self.changed_columns.add((cx, cz))
         for cy in range(WORLD_H):
             key = (cx, cy, cz)
             if key in self.chunks:
@@ -206,6 +233,7 @@ class World:
     def on_chunk_modified(self, chunk):
         chunk.is_empty = not np.any(chunk.voxels)
         self.dirty.add(chunk.position)
+        self.changed_columns.add((chunk.position[0], chunk.position[2]))
         if chunk.mesh is not None or self.ready_to_mesh(chunk.position):
             chunk.build_mesh()
 
@@ -215,6 +243,9 @@ class World:
         self.dirty.clear()
         p = self.app.player
         self.store.save_player(p.feet.x, p.feet.y, p.feet.z, p.yaw, p.pitch, p.fly)
+        environment = getattr(self.app, 'environment', None)
+        if environment is not None:
+            environment.save()  # time of day and weather
         self.last_save = time.perf_counter()
 
     def update(self):

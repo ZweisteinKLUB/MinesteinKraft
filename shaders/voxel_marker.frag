@@ -1,5 +1,7 @@
 #version 330 core
 
+#include "env.glsl"
+
 layout (location = 0) out vec4 fragColor;
 
 in vec3 marker_color;
@@ -11,4 +13,6 @@ void main() {
     fragColor = texture(u_texture_0, uv);
     fragColor.rgb += marker_color;
     fragColor.a = (fragColor.r + fragColor.b > 1.0) ? 0.0 : 1.0;
+    // same brightness on screen by day and by night (undo the exposure)
+    fragColor.rgb = srgb_to_linear(fragColor.rgb) * 0.6 / camera.w;
 }

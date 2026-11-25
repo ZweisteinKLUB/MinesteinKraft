@@ -107,9 +107,6 @@ SPAWN_INTERVAL = 2.0               # seconds between spawn attempts
 SPAWN_DISTANCE = (24.0, 48.0)      # min / max horizontal distance from the player
 DESPAWN_DISTANCE = 64.0
 
-# colors
-BG_COLOR = glm.vec3(0.58, 0.83, 0.99)
-
 # day / night cycle (accelerated)
 DAY_LENGTH = 20 * 60.0      # real seconds per game day (24 game hours)
 START_HOUR = 8.0            # time of day when a new world starts
@@ -121,8 +118,8 @@ TIME_SKIP_HOURS = 1.0       # F7: jump forward in time
 SUN_ILLUMINANCE = 3.0
 MOON_ILLUMINANCE = 0.16
 DAY_EXPOSURE = 1.0
-NIGHT_EXPOSURE = 6.0        # the eye adapts to the dark: nights stay playable
-MIN_AMBIENT = 0.004         # cave ambient light (caves are dark, never fully black)
+NIGHT_EXPOSURE = 8.0        # the eye adapts to the dark: nights stay playable
+MIN_AMBIENT = 0.008         # cave ambient light (caves are dark, never fully black)
 
 # weather: random durations (game hours), transition time (real seconds)
 WEATHER_DURATION_HOURS = {
@@ -183,7 +180,6 @@ TREE_H_WIDTH, TREE_H_HEIGHT = TREE_WIDTH // 2, TREE_HEIGHT // 2
 
 # water
 WATER_LINE = 5.6
-WATER_AREA = 5 * CHUNK_SIZE * WORLD_W
 
 # swimming (units: blocks, seconds); terminal speed = acceleration / drag
 WATER_GRAVITY = 5.0       # net sinking acceleration (gravity minus buoyancy)
@@ -198,10 +194,6 @@ WATER_ENTRY_DAMPING = 0.3 # vertical speed kept when plunging into the water
 WATER_FOG_COLOR = glm.vec3(0.04, 0.22, 0.42)
 WATER_FOG_DENSITY = 0.006  # visibility ~ 20-25 blocks
 
-
-# cloud
-CLOUD_SCALE = 25
-CLOUD_HEIGHT = WORLD_H * CHUNK_SIZE * 2
 
 # block breaking: seconds to break each block type while holding the left button
 BREAK_TIME = {SAND: 0.5, GRASS: 0.6, DIRT: 0.6, STONE: 1.5, SNOW: 0.35, LEAVES: 0.3, WOOD: 1.0}

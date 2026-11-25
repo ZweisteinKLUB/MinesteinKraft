@@ -1,5 +1,7 @@
 #version 330 core
 
+#include "env.glsl"
+
 layout (location = 0) in uint packed_data;
 
 int x, y , z;
@@ -14,16 +16,11 @@ flat out int voxel_id;
 flat out int face_id;
 
 out vec2 uv;
-out float shading;
+out float ao;
 out vec3 frag_world_pos;
 
-const float ao_values[4] = float[4](0.1, 0.25, 0.5, 1.0);
-
-const float face_shading[6] = float[6](
-    1.0, 0.5, // top bottom
-    0.5, 0.8, // right left
-    0.5, 0.8  // front back
-);
+const float ao_values[4] = float[4](0.22, 0.45, 0.72, 1.0);
+const int LEAVES_ID = 6;
 
 const vec2 uv_coords[4] = vec2[4](
     vec2(0, 0), vec2(0, 1),
@@ -36,13 +33,6 @@ const int uv_indices[24] = int[24](
     3, 1, 0, 3, 0, 2,  // even flipped face
     1, 2, 3, 1, 0, 2   // odd flipped face
 );
-
-
-vec3 hash31(float p) {
-    vec3 p3 = fract(vec3(p * 21.2) * vec3(0.1031, 0.1030, 0.0973));
-    p3 += dot(p3, p3.yzx + 33.33);
-    return fract((p3.xxy + p3.yzz) * p3.zyx) + 0.05;
-}
 
 
 void unpack(uint packed_data) {
@@ -75,9 +65,18 @@ void main() {
 
     uv = uv_coords[uv_indices[uv_index]];
 
-    shading = face_shading[face_id] * ao_values[ao_id];
+    ao = ao_values[ao_id];
 
-    frag_world_pos = (m_model * vec4(in_position, 1.0)).xyz;
+    vec3 world = (m_model * vec4(in_position, 1.0)).xyz;
+    if (voxel_id == LEAVES_ID) {
+        // foliage sways in the wind (a function of the position only: shared corners stay joined)
+        float t = zenith.w;
+        float gust = 0.03 + 0.09 * wind.z;
+        float phase = dot(world, vec3(0.31, 0.17, 0.23));
+        world.xz += wind.xy * gust * (sin(t * 1.7 + phase) * 0.6 + sin(t * 3.1 + phase * 1.7) * 0.4);
+        world.y += gust * 0.4 * sin(t * 2.3 + phase * 1.3);
+    }
+    frag_world_pos = world;
 
-    gl_Position = m_proj * m_view * m_model * vec4(in_position, 1.0);
+    gl_Position = m_proj * m_view * vec4(world, 1.0);
 }

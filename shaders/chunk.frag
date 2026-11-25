@@ -1,26 +1,29 @@
 #version 330 core
 
+#include "env.glsl"
+#include "sky.glsl"
+#include "lighting.glsl"
+
 layout (location = 0) out vec4 fragColor;
 
-const vec3 gamma = vec3(2.2);
-const vec3 inv_gamma = 1.0 / gamma;
-
 uniform sampler2DArray u_texture_array_0;
-uniform vec3 bg_color;
-uniform float water_line;
-uniform float u_time;
-uniform float u_underwater;      // 1.0 when the camera is below the water line
-uniform vec3 water_fog_color;
-uniform float water_fog_density;
-uniform float u_fog_start;
-uniform float u_fog_end;
+uniform int u_shadow_pass;  // 1: drawing into a shadow map (depth only)
 
 in vec2 uv;
-in float shading;
+in float ao;
 in vec3 frag_world_pos;
 
 flat in int face_id;
 flat in int voxel_id;
+
+const vec3 FACE_NORMALS[6] = vec3[6](
+    vec3(0, 1, 0), vec3(0, -1, 0), vec3(1, 0, 0), vec3(-1, 0, 0), vec3(0, 0, -1), vec3(0, 0, 1)
+);
+// per block id: air, sand, grass, dirt, stone, snow, leaves, wood
+const float ROUGHNESS[8] = float[8](1.0, 0.9, 0.8, 0.92, 0.6, 0.5, 0.65, 0.75);
+const float POROSITY[8] = float[8](0.0, 0.9, 0.6, 0.85, 0.35, 0.1, 0.4, 0.5);  // darkens when wet
+const int LEAVES_ID = 6;
+const vec3 SNOW_ALBEDO = vec3(0.86, 0.9, 0.96);
 
 
 // moving light pattern of sunlight refracted by waves
@@ -30,39 +33,79 @@ float caustics(vec2 p, float t) {
     return pow(abs(a + b) * 0.5, 2.0);
 }
 
-
-// light distance haze, then opaque between u_fog_start and u_fog_end (edge of the loaded area)
-float sky_fog(float dist) {
-    float haze = 1.0 - exp2(-0.00001 * dist * dist);
-    return max(haze, smoothstep(u_fog_start, u_fog_end, dist));
-}
-
 void main() {
+    if (u_shadow_pass == 1) {
+        fragColor = vec4(1.0);
+        return;
+    }
     vec2 face_uv = uv;
     face_uv.x = uv.x / 3.0 - float(min(face_id, 2)) / 3.0;
+    vec3 albedo = srgb_to_linear(texture(u_texture_array_0, vec3(face_uv, float(voxel_id))).rgb);
 
-    vec3 tex_col = texture(u_texture_array_0, vec3(face_uv, float(voxel_id))).rgb;
-    tex_col = pow(tex_col, gamma);
+    vec3 pos = frag_world_pos;
+    vec3 n = FACE_NORMALS[face_id];
+    vec3 v = normalize(camera.xyz - pos);
+    float rough = ROUGHNESS[voxel_id & 7];
+    float water_depth = fog_params.w - pos.y;  // > 0 under the sea
 
-    tex_col *= shading;
+    float sky_vis = sky_visibility(pos, n);
+    float exposed = sky_exposure(pos, n) * step(water_depth, 0.0);
 
-    float fog_dist = gl_FragCoord.z / gl_FragCoord.w;
+    // ---------------------------------------------------------------- weather on the ground
+    float top = smoothstep(0.5, 0.9, n.y);
+    float patches = texture(u_noise, pos.xz * 0.045).g;
+    float snow = top * exposed * smoothstep(patches * 0.55, patches * 0.55 + 0.2, weather.w);
+    float wet = weather.z * exposed * mix(0.6, 1.0, top) * (1.0 - snow);
+    float puddle = top * wet * smoothstep(0.58, 0.68, texture(u_noise, pos.xz * 0.03 + 0.5).r);
 
-    if (frag_world_pos.y < water_line) {
-        // underwater surfaces: blue absorption, darker with depth, caustics
-        float depth = water_line - frag_world_pos.y;
-        tex_col *= vec3(0.25, 0.55, 1.0) * exp(-0.08 * depth);
-        tex_col += vec3(0.35, 0.55, 0.6) * caustics(frag_world_pos.xz, u_time) * exp(-0.15 * depth);
+    albedo = mix(albedo, SNOW_ALBEDO, snow);
+    albedo *= mix(1.0, 0.45, wet * POROSITY[voxel_id & 7]);
+    albedo *= mix(1.0, 0.7, puddle);
+    rough = mix(rough, 0.5, snow);
+    rough = mix(rough, 0.18, wet * 0.8);
+    rough = mix(rough, 0.03, puddle);
+
+    // ---------------------------------------------------------------- direct light
+    vec3 l = light_dir.xyz;
+    float ndl = dot(n, l);
+    float sun_shadow = cloud_shadow(pos);
+    float shadow = ndl > 0.0 ? shadow_factor(pos, n) * sun_shadow : 0.0;
+    vec3 direct = light_color.rgb * saturate(ndl) * shadow * mix(1.0, ao, 0.35);
+
+    vec3 h = normalize(v + l);
+    float f0 = mix(0.03, 0.02, wet);
+    float fresnel_l = fresnel_schlick(dot(h, v), f0);
+    vec3 specular = light_color.rgb * ggx_specular(n, v, l, max(rough, 0.04)) * fresnel_l * shadow;
+
+    // leaves let some light through
+    vec3 translucent = vec3(0.0);
+    if (voxel_id == LEAVES_ID) {
+        float back = pow(saturate(dot(-v, l)), 4.0) * 0.6 + saturate(-ndl) * 0.25;
+        translucent = light_color.rgb * vec3(0.9, 1.0, 0.5) * back * sun_shadow * sky_vis;
     }
 
-    if (u_underwater > 0.5) {
-        tex_col *= vec3(0.45, 0.75, 1.0);  // light absorbed by the water around the camera
-        tex_col = mix(tex_col, pow(water_fog_color, gamma),
-                      1.0 - exp(-water_fog_density * fog_dist * fog_dist));
-    } else {
-        tex_col = mix(tex_col, pow(bg_color, gamma), sky_fog(fog_dist));
+    // ---------------------------------------------------------------- indirect light
+    vec3 ambient = ambient_light(n, sky_vis) * ao;
+    vec3 flash = flash_light(n, sky_vis) * ao;
+
+    // sky reflected by smooth (wet) surfaces
+    vec3 r = reflect(-v, n);
+    float fresnel_v = fresnel_schlick(dot(n, v), f0);
+    float smooth_ = (1.0 - rough) * (1.0 - rough);
+    vec3 reflection = sky_radiance(r) * fresnel_v * smooth_ * sky_vis * ao;
+
+    // under the sea: light absorbed on its way down, caustics
+    if (water_depth > 0.0) {
+        vec3 absorb = exp(-vec3(0.42, 0.11, 0.06) * water_depth);
+        float c = caustics(pos.xz, zenith.w) * exp(-0.12 * water_depth);
+        direct = direct * absorb * (0.7 + 2.5 * c);
+        direct += light_color.rgb * absorb * c * 0.4 * saturate(n.y) * sun_shadow;
+        ambient *= exp(-vec3(0.28, 0.08, 0.04) * water_depth);
+        specular *= absorb;
+        reflection *= 0.0;
     }
 
-    tex_col = pow(tex_col, inv_gamma);
-    fragColor = vec4(tex_col, 1.0);
+    vec3 col = albedo * (direct + ambient + flash + translucent) + specular + reflection;
+    col = apply_fog(col, pos);
+    fragColor = vec4(col, 1.0);
 }

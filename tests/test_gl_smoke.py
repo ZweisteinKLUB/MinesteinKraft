@@ -24,15 +24,31 @@ def ctx():
     pytest.skip(f'no OpenGL 3.3 context available: {errors}')
 
 
-@pytest.mark.parametrize('name', ['chunk', 'voxel_marker', 'water', 'clouds', 'crack', 'ui', 'mob'])
+SCENE_SHADERS = ['chunk', 'voxel_marker', 'water', 'crack', 'mob', 'precipitation', 'lightning']
+FULLSCREEN_SHADERS = ['sky', 'bloom_down', 'bloom_up', 'godrays', 'composite', 'fxaa']
+
+
+@pytest.mark.parametrize('name', SCENE_SHADERS + ['ui'])
 def test_shader_compiles(ctx, name):
     program = load_program(ctx, name)
     if name != 'ui':
         assert 'm_proj' in program and 'm_view' in program
 
 
+@pytest.mark.parametrize('name', FULLSCREEN_SHADERS)
+def test_fullscreen_shader_compiles(ctx, name):
+    load_program(ctx, name, 'fullscreen')
+
+
+def test_env_block_matches_python_layout(ctx):
+    from render.env_buffer import ENV_SIZE
+    for name in ('chunk', 'water', 'mob'):
+        assert load_program(ctx, name)['Env'].size == ENV_SIZE
+    assert load_program(ctx, 'sky', 'fullscreen')['Env'].size == ENV_SIZE
+
+
 def test_textures_load(ctx):
-    for name, is_array in (('frame.png', False), ('water.png', False), ('tex_array_0.png', True)):
+    for name, is_array in (('frame.png', False), ('tex_array_0.png', True)):
         load_texture(ctx, name, is_array)
 
 

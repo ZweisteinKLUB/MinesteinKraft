@@ -13,8 +13,8 @@ EXTINCTION = glm.vec3(0.045, 0.10, 0.22)
 
 # sky keyframes over the sine of the sun elevation: (sin, zenith, horizon)
 SKY_KEYS = (
-    (-1.00, glm.vec3(0.0010, 0.0016, 0.0040), glm.vec3(0.0020, 0.0030, 0.0060)),
-    (-0.25, glm.vec3(0.0012, 0.0020, 0.0055), glm.vec3(0.0030, 0.0040, 0.0080)),
+    (-1.00, glm.vec3(0.0022, 0.0035, 0.0090), glm.vec3(0.0040, 0.0060, 0.0120)),
+    (-0.25, glm.vec3(0.0025, 0.0040, 0.0100), glm.vec3(0.0050, 0.0070, 0.0140)),
     (-0.10, glm.vec3(0.010, 0.018, 0.050), glm.vec3(0.040, 0.030, 0.050)),
     (0.00, glm.vec3(0.060, 0.110, 0.260), glm.vec3(0.700, 0.300, 0.120)),
     (0.10, glm.vec3(0.140, 0.300, 0.700), glm.vec3(0.900, 0.620, 0.420)),
@@ -59,7 +59,7 @@ def luminance(c):
 def overcast(color, amount, darkness):
     """Grey a sky color under clouds (keeps its brightness, then darkens it)."""
     grey = OVERCAST_COLOR * (luminance(color) / luminance(OVERCAST_COLOR))
-    return glm.mix(color, grey, amount) * (1.0 - 0.75 * darkness * amount)
+    return glm.mix(color, grey, amount) * (1.0 - 0.88 * darkness * amount)
 
 
 @dataclass
@@ -118,16 +118,16 @@ def compute_lighting(sun_dir, moon_dir, moon_illumination, weather, flash=0.0):
     fog_color = glm.mix(fog_color, ambient_sky * 0.75, weather.fog * 0.7)
 
     if flash > 0.0:
-        bolt = glm.vec3(0.75, 0.8, 1.0) * (flash * 2.5)
-        zenith += bolt * 0.5
-        horizon += bolt * 0.5
+        bolt = glm.vec3(0.75, 0.8, 1.0) * (flash * 0.35)
+        zenith += bolt * 0.3
+        horizon += bolt * 0.3
         ambient_sky += bolt
-        fog_color += bolt * 0.3
+        fog_color += bolt * 0.2
 
     day = smoothstep(-0.12, 0.25, s)
     exposure = NIGHT_EXPOSURE + (DAY_EXPOSURE - NIGHT_EXPOSURE) * day
-    exposure *= 1.0 + 0.6 * overcast_amount * dark * day  # the eye adapts to dark skies
-    stars = smoothstep(0.02, -0.18, s) * (1.0 - smoothstep(0.3, 0.8, clouds))
+    exposure *= 1.0 + 0.25 * overcast_amount * dark * day  # the eye adapts to dark skies
+    stars = smoothstep(-0.08, -0.25, s) * (1.0 - smoothstep(0.3, 0.8, clouds))
 
     return Lighting(
         sun_color=sun_color, moon_color=moon_color, light_dir=light_dir, light_color=light_color,
