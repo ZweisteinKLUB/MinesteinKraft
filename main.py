@@ -14,9 +14,12 @@ from atmosphere.environment import Environment
 from render.pipeline import Renderer
 from player import Player
 from textures import Textures
+from inventory import Inventory
+from hud import HUD, slot_at
 
 KEY_NEXT_WEATHER = pg.K_F6
 KEY_SKIP_TIME = pg.K_F7
+KEY_BACKPACK = pg.K_i
 
 GL_ERROR_HELP = (
     "MinesteinKraft needs OpenGL {major}.{minor} (core profile).\n\n"
@@ -56,6 +59,8 @@ class VoxelEngine:
         self.time = 0
 
         self.mouse_captured = False
+        self.backpack_open = False
+        self.drag_from = None  # backpack slot a stack was picked from with the button still down
         self.is_running = True
         self.ui = UIOverlay(self.ctx)
         self.screens = MenuScreen(self, worlds_dir or paths.worlds_dir())
@@ -144,6 +149,10 @@ class VoxelEngine:
         self.scene = Scene(self)
         self.renderer = Renderer(self, self.graphics)
         world = self.scene.world
+        self.inventory = Inventory.from_json(self.store.get_meta('inventory'))
+        world.voxel_handler.inventory = self.inventory
+        self.scene.drops.load_json(self.store.get_meta('drops'))
+        self.hud = HUD(self.ctx)
 
         if self.store.chunk_count() == 0:
             # first launch of this world: build and save the island
@@ -164,6 +173,7 @@ class VoxelEngine:
         self.store.touch()
         world.release()
         self.renderer.release()
+        self.hud.release()
         self.store.close()
 
     def update(self):
@@ -179,7 +189,50 @@ class VoxelEngine:
 
     def render(self):
         self.renderer.render()
+        mouse = pg.mouse.get_pos() if self.backpack_open else None
+        self.hud.render(self.window_size, self.inventory, self.backpack_open, mouse, self.time)
         pg.display.flip()
+
+    # ------------------------------------------------------------------ backpack
+    def open_backpack(self):
+        self.backpack_open = True
+        self.drag_from = None
+        self.set_mouse_capture(False)  # the cursor shows
+
+    def close_backpack(self):
+        left = self.inventory.drop_held()  # the carried stack goes back
+        if left is not None:
+            self.throw(left)
+        self.backpack_open = False
+        self.set_mouse_capture(True)
+
+    def throw(self, stack):
+        self.scene.drops.throw(stack.item, stack.count, self.player.position, self.player.look)
+
+    def backpack_mouse(self, event):
+        """Clicks in the backpack screen: pick / put stacks, drag and drop, Shift + click to send a
+        stack to the other part (hotbar <-> backpack), click outside the slots to throw the carried stack."""
+        inv = self.inventory
+        if event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
+            index = slot_at(self.window_size, event.pos, True)
+            if index is None:
+                if inv.held is not None:
+                    held, inv.held = inv.held, None
+                    inv.changed()
+                    self.throw(held)
+            elif pg.key.get_mods() & pg.KMOD_SHIFT and inv.held is None:
+                inv.quick_move(index)
+            else:
+                picked = inv.held is None
+                inv.click(index)
+                self.drag_from = index if picked and inv.held is not None else None
+        elif event.type == pg.MOUSEBUTTONUP and event.button == 1:
+            index = slot_at(self.window_size, event.pos, True)
+            if self.drag_from is not None and index is not None and index != self.drag_from and inv.held is not None:
+                inv.click(index)  # dragged onto another slot
+            self.drag_from = None
+        elif event.type == pg.MOUSEWHEEL:
+            inv.scroll(-event.y)
 
     def handle_events(self):
         for event in pg.event.get():
@@ -187,12 +240,21 @@ class VoxelEngine:
                 self.is_running = False
             elif event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE:
                 # first Esc releases the mouse, a second one quits
-                if self.mouse_captured:
+                if self.backpack_open:
+                    self.close_backpack()
+                elif self.mouse_captured:
                     self.set_mouse_capture(False)
                 else:
                     self.is_running = False
+            elif event.type == pg.KEYDOWN and event.key == KEY_BACKPACK:
+                if self.backpack_open:
+                    self.close_backpack()
+                else:
+                    self.open_backpack()
             elif event.type == pg.WINDOWFOCUSLOST:
                 self.set_mouse_capture(False)
+            elif self.backpack_open and event.type in (pg.MOUSEBUTTONDOWN, pg.MOUSEBUTTONUP, pg.MOUSEWHEEL):
+                self.backpack_mouse(event)
             elif event.type == pg.MOUSEBUTTONDOWN and not self.mouse_captured:
                 self.set_mouse_capture(True)  # this click only recaptures the mouse
             elif event.type == pg.KEYDOWN and event.key == KEY_NEXT_WEATHER:

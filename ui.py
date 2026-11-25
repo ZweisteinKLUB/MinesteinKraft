@@ -15,13 +15,18 @@ class UIOverlay:
         self.texture = None
 
     def draw(self, surface):
-        size = surface.get_size()
-        if self.texture is None or self.texture.size != size:
-            if self.texture is not None:
-                self.texture.release()
-            self.texture = self.ctx.texture(size, 4)
-            self.texture.filter = (mgl.NEAREST, mgl.NEAREST)
-        self.texture.write(pg.image.tobytes(surface, 'RGBA', True))
+        """Blend ``surface`` over the whole window; ``None`` draws the last one again (no upload)."""
+        if surface is None:
+            if self.texture is None:
+                return
+        else:
+            size = surface.get_size()
+            if self.texture is None or self.texture.size != size:
+                if self.texture is not None:
+                    self.texture.release()
+                self.texture = self.ctx.texture(size, 4)
+                self.texture.filter = (mgl.NEAREST, mgl.NEAREST)
+            self.texture.write(pg.image.tobytes(surface, 'RGBA', True))
         self.texture.use(location=UI_TEXTURE_UNIT)
         self.ctx.disable(mgl.DEPTH_TEST | mgl.CULL_FACE)
         self.vao.render(mode=mgl.TRIANGLE_STRIP, vertices=4)

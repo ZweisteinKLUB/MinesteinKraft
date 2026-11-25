@@ -24,7 +24,7 @@ def ctx():
     pytest.skip(f'no OpenGL 3.3 context available: {errors}')
 
 
-SCENE_SHADERS = ['chunk', 'voxel_marker', 'water', 'crack', 'mob', 'precipitation', 'lightning']
+SCENE_SHADERS = ['chunk', 'voxel_marker', 'water', 'crack', 'mob', 'item', 'precipitation', 'lightning']
 FULLSCREEN_SHADERS = ['sky', 'bloom_down', 'bloom_up', 'godrays', 'composite', 'fxaa']
 
 

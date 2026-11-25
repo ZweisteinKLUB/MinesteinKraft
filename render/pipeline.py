@@ -9,6 +9,7 @@ from render.textures import HeightMap, create_noise_texture
 from render.shadows import ShadowMaps
 from render.effects import WaterSurface, Precipitation, Lightning
 from render.postprocess import PostProcess
+from render.drops import DropRenderer
 
 
 class Renderer:
@@ -25,6 +26,7 @@ class Renderer:
         self.water = WaterSurface(ctx, sp.water, preset['water_grid'])
         self.precipitation = Precipitation(ctx, sp.precipitation)
         self.lightning = Lightning(ctx, sp.lightning)
+        self.drops = DropRenderer(ctx, sp.item)
         self.sky_vao = ctx.vertex_array(sp.sky, [])
         self.ssr = preset['ssr']
         self.size = tuple(app.window_size)
@@ -107,7 +109,8 @@ class Renderer:
 
         # shadow maps
         mobs = [player] + [m for m in scene.mobs.mobs]
-        self.shadows.render((sp.chunk, sp.mob), world, mobs, scene.mob_renderer)
+        self.drops.update(scene.drops.drops)
+        self.shadows.render((sp.chunk, sp.mob, sp.item), world, mobs, scene.mob_renderer, extra=(self.drops.render,))
 
         # opaque scene in HDR
         sp.set_projection(player.m_proj)
@@ -118,6 +121,7 @@ class Renderer:
         scene.cracks.render()
         for mob in mobs:
             scene.mob_renderer.render(mob)
+        self.drops.render()
 
         # sky behind everything (only where nothing was drawn)
         ctx.depth_func = '<='
@@ -148,5 +152,5 @@ class Renderer:
         for obj in self.targets:
             obj.release()
         for obj in (self.env_buffer, self.noise, self.heightmap, self.shadows, self.water,
-                    self.precipitation, self.lightning, self.sky_vao, self.post):
+                    self.precipitation, self.lightning, self.drops, self.sky_vao, self.post):
             obj.release()

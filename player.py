@@ -15,6 +15,8 @@ KEYS_DOWN = (pg.K_LSHIFT,)     # down when flying
 KEYS_SPRINT = (pg.K_LCTRL,)
 KEY_TOGGLE_FLY = pg.K_f
 KEY_TOGGLE_VIEW = pg.K_F5
+# keys 1..5 above the letters (scancodes: same place on AZERTY and QWERTY)
+HOTBAR_SCANCODES = (pg.KSCAN_1, pg.KSCAN_2, pg.KSCAN_3, pg.KSCAN_4, pg.KSCAN_5)
 
 VIEW_FIRST_PERSON, VIEW_BEHIND, VIEW_FRONT = range(3)
 VIEW_NAMES = ('first person', 'third person (behind)', 'third person (front)')
@@ -94,7 +96,12 @@ class Player(Camera, Mob):
                 voxel_handler.switch_mode()
         if event.type == pg.MOUSEBUTTONUP and event.button == 1:
             voxel_handler.breaking = False
+        inventory = getattr(self.app, 'inventory', None)
+        if event.type == pg.MOUSEWHEEL and inventory is not None:
+            inventory.scroll(-event.y)  # wheel down: next slot
         if event.type == pg.KEYDOWN:
+            if inventory is not None and event.scancode in HOTBAR_SCANCODES:
+                inventory.select(HOTBAR_SCANCODES.index(event.scancode))
             self.keyboard_event(event)
 
     def mouse_control(self):

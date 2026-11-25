@@ -67,8 +67,8 @@ class ShadowMaps:
         limit = self.radii[i] + CHUNK_SPHERE_RADIUS
         return abs(p.x) <= limit and abs(p.y) <= limit
 
-    def render(self, programs, world, mobs, mob_renderer):
-        """Draw the depth of the blocks and mobs seen from the light into each cascade."""
+    def render(self, programs, world, mobs, mob_renderer, extra=()):
+        """Draw the depth of the blocks and mobs (and ``extra`` draw calls) seen from the light."""
         if not self.active:
             return
         ctx = self.ctx
@@ -89,6 +89,8 @@ class ShadowMaps:
                     chunk.mesh.render()
             for mob in mobs:
                 mob_renderer.render(mob)
+            for draw in extra:
+                draw()
         for program in programs:
             program['u_shadow_pass'] = 0
         ctx.polygon_offset = (0.0, 0.0)

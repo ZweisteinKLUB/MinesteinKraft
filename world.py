@@ -246,6 +246,12 @@ class World:
         environment = getattr(self.app, 'environment', None)
         if environment is not None:
             environment.save()  # time of day and weather
+        inventory = getattr(self.app, 'inventory', None)
+        if inventory is not None:
+            self.store.set_meta('inventory', inventory.to_json())
+        scene = getattr(self.app, 'scene', None)
+        if scene is not None and hasattr(scene, 'drops'):
+            self.store.set_meta('drops', scene.drops.to_json())
         self.last_save = time.perf_counter()
 
     def update(self):

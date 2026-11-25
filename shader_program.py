@@ -35,7 +35,7 @@ class ShaderProgram:
     """Every program of the game, with the shared uniforms set once."""
 
     # scene programs drawn with the camera (m_proj / m_view)
-    SCENE = ('chunk', 'voxel_marker', 'water', 'crack', 'mob', 'precipitation', 'lightning')
+    SCENE = ('chunk', 'voxel_marker', 'water', 'crack', 'mob', 'item', 'precipitation', 'lightning')
 
     def __init__(self, app):
         self.app = app
@@ -76,7 +76,7 @@ class ShaderProgram:
         su(self.chunk, 'm_model', glm.mat4())
         su(self.voxel_marker, 'm_model', glm.mat4())
         su(self.mob, 'u_tint', glm.vec3(0))
-        for program in (self.chunk, self.mob):
+        for program in (self.chunk, self.mob, self.item):
             su(program, 'u_shadow_pass', 0)
         su(self.water, 'u_near', NEAR)
         su(self.water, 'u_far', FAR)

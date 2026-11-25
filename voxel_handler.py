@@ -17,21 +17,27 @@ class VoxelHandler:
         self.voxel_normal = None
         
         self.interaction_mode = 0 # 0: remove voxel   1: add voxel
-        self.new_voxel_id = 1
+        self.new_voxel_id = 1        # block placed when there is no inventory (tests, tools)
+        self.inventory = None        # set by the game: building uses its selected hotbar slot
+        self.on_block_broken = None  # callback(block id, world position): leaves a drop
 
         # progressive breaking while the left button is held
         self.breaker = BlockBreaker()
         self.breaking = False
         
     def add_voxel(self):
-        if self.voxel_id:
+        inventory = self.inventory
+        block = self.new_voxel_id if inventory is None else inventory.selected_item()
+        if self.voxel_id and block:
             # check voxel id along normal
             new_pos = self.voxel_world_pos + self.voxel_normal
             voxel_id, voxel_index, voxel_local_pos, chunk = self.get_voxel_id(new_pos)
 
             # is the new place inside the world, empty, and not inside the player?
             if chunk is not None and not voxel_id and not self.app.player.intersects_block(*new_pos):
-                chunk.voxels[voxel_index] = self.new_voxel_id
+                chunk.voxels[voxel_index] = block
+                if inventory is not None:
+                    inventory.take_selected()  # one item less; the slot empties at 0
                 self.world.on_chunk_modified(chunk)
                 self.rebuild_adjacent_chunks(voxel_local_pos, new_pos)
 
@@ -61,6 +67,8 @@ class VoxelHandler:
 
     def remove_voxel(self):
         if self.voxel_id:
+            if self.on_block_broken is not None:
+                self.on_block_broken(self.voxel_id, tuple(self.voxel_world_pos))
             self.chunk.voxels[self.voxel_index] = 0
             self.world.on_chunk_modified(self.chunk)
             self.rebuild_adjacent_chunks(self.voxel_local_pos, self.voxel_world_pos)
