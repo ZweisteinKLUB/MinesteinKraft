@@ -13,7 +13,8 @@ class ShaderProgram:
         self.water = self.get_program('water')
         self.clouds = self.get_program('clouds')
         self.crack = self.get_program('crack')
-        self.programs = (self.chunk, self.voxel_marker, self.water, self.clouds, self.crack)
+        self.mob = self.get_program('mob')
+        self.programs = (self.chunk, self.voxel_marker, self.water, self.clouds, self.crack, self.mob)
         #-------------------------- #
         self.set_uniforms_on_init()
 
@@ -61,8 +62,15 @@ class ShaderProgram:
         # cracks
         su(self.crack, 'u_cracks', 3)
 
+        # mobs
+        su(self.mob, 'bg_color', BG_COLOR)
+        su(self.mob, 'water_line', WATER_LINE)
+        su(self.mob, 'u_fog_start', FOG_START)
+        su(self.mob, 'u_fog_end', FOG_END)
+        su(self.mob, 'u_tint', glm.vec3(0))
+
         # underwater ambiance
-        for program in (self.chunk, self.water, self.clouds):
+        for program in (self.chunk, self.water, self.clouds, self.mob):
             su(program, 'water_fog_color', WATER_FOG_COLOR)
             su(program, 'water_fog_density', WATER_FOG_DENSITY)
 
@@ -70,7 +78,7 @@ class ShaderProgram:
         for program in self.programs:
             self.set_uniform(program, 'm_view', self.player.m_view)
         underwater = 1.0 if self.player.head_underwater else 0.0
-        for program in (self.chunk, self.water, self.clouds):
+        for program in (self.chunk, self.water, self.clouds, self.mob):
             self.set_uniform(program, 'u_underwater', underwater)
         self.set_uniform(self.chunk, 'u_time', self.app.time)
         # the water plane follows the camera, snapped to whole blocks

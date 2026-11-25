@@ -66,6 +66,7 @@ class Model:
     colors: np.ndarray
     joint_ids: np.ndarray
     weights: np.ndarray
+    emissive: np.ndarray            # (N,) 1.0 for self-lit vertices (glowing eyes), else 0.0
     animations: dict                # name -> Animation
 
     def node_index(self, name):
@@ -145,6 +146,12 @@ def _material_color(doc, material_index):
     return np.array(pbr.get('baseColorFactor', (1, 1, 1, 1))[:3], dtype=np.float32)
 
 
+def _material_emissive(doc, material_index):
+    if material_index is None:
+        return 0.0
+    return float(max(doc['materials'][material_index].get('emissiveFactor', (0, 0, 0))) > 0)
+
+
 def load_model(path):
     doc, binary = read_glb(path)
     return model_from_gltf(doc, binary)
@@ -175,7 +182,7 @@ def model_from_gltf(doc, binary):
         joints, inverse_bind = [], np.zeros((0, 4, 4), dtype=np.float32)
 
     # ---- meshes (every primitive of every mesh node, expanded to triangle corners)
-    parts = {k: [] for k in ('pos', 'nrm', 'col', 'jnt', 'wgt')}
+    parts = {k: [] for k in ('pos', 'nrm', 'col', 'jnt', 'wgt', 'emi')}
     for node in raw_nodes:
         if 'mesh' not in node:
             continue
@@ -202,11 +209,12 @@ def model_from_gltf(doc, binary):
                 idx = read_accessor(doc, binary, prim['indices']).reshape(-1).astype(np.int64)
             else:
                 idx = np.arange(n)
-            for key, arr in zip(parts, (pos, nrm, col, jnt, wgt)):
+            emi = np.full(n, _material_emissive(doc, prim.get('material')), dtype=np.float32)
+            for key, arr in zip(parts, (pos, nrm, col, jnt, wgt, emi)):
                 parts[key].append(arr[idx])
     if not parts['pos']:
         raise GltfError('no triangle mesh in file')
-    pos, nrm, col, jnt, wgt = (np.concatenate(parts[k]) for k in parts)
+    pos, nrm, col, jnt, wgt, emi = (np.concatenate(parts[k]) for k in parts)
     total = wgt.sum(axis=1, keepdims=True)
     wgt = wgt / np.where(total == 0, 1, total)
 
@@ -230,4 +238,4 @@ def model_from_gltf(doc, binary):
         name = anim.get('name', f'anim{a}')
         animations[name] = Animation(name, channels, duration)
 
-    return Model(nodes, joints, inverse_bind, pos, nrm, col, jnt, wgt, animations)
+    return Model(nodes, joints, inverse_bind, pos, nrm, col, jnt, wgt, emi, animations)
