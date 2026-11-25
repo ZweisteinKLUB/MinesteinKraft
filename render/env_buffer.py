@@ -1,6 +1,6 @@
 """The ``Env`` uniform block (shaders/include/env.glsl): sky, light, weather and camera state."""
 import numpy as np
-from settings import glm, math, FOG_START, FOG_END, WATER_LINE, WATER_FOG_COLOR, WATER_FOG_DENSITY, \
+from settings import glm, FOG_START, FOG_END, WATER_LINE, WATER_FOG_COLOR, WATER_FOG_DENSITY, \
     PRECIPITATION_RADIUS, HEIGHTMAP_SIZE, SNOW_LVL, MIN_AMBIENT, WAVE_HEIGHT
 
 # std140 layout: names in declaration order, 16 floats per mat4, 4 per vec4

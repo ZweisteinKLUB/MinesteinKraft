@@ -1,6 +1,6 @@
 """The frame: shadow maps, HDR scene (blocks, mobs, sky, sea, weather), post-processing."""
 import moderngl as mgl
-from settings import glm, GRAPHICS_PRESETS, CLOUD_ALTITUDE, WATER_LINE
+from settings import glm, GRAPHICS_PRESETS, CLOUD_ALTITUDE, WATER_LINE, CHUNK_SIZE
 from shader_program import (ENV_BINDING, UNIT_SHADOW, UNIT_SCENE_COLOR, UNIT_SCENE_DEPTH, UNIT_HEIGHTMAP,
                             UNIT_NOISE)
 from atmosphere.lighting import luminance, smoothstep
@@ -85,7 +85,7 @@ class Renderer:
 
     def strike_ground(self, world, strike):
         x, z = int(strike.x), int(strike.z)
-        if world.column_loaded(x // 32, z // 32):
+        if world.column_loaded(x // CHUNK_SIZE, z // CHUNK_SIZE):
             return max(float(world.surface_height(x, z)), WATER_LINE)
         return WATER_LINE
 
